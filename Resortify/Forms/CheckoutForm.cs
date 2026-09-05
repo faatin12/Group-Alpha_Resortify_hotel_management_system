@@ -6,32 +6,63 @@ using System.Windows.Forms;
 using Microsoft.Data.SqlClient;
 using Resortify.Data;
 using Resortify.Helpers;
+
 namespace Resortify.Forms
 {
+    // Final booking and payment screen.
     public partial class CheckoutForm : Form
     {
         private class CartLine
         {
-            public int CartId, RoomId, Nights, Quantity, Guests;
-            public string HotelName = "", City = "", RoomType = "", Services = "";
-            public DateTime CheckIn, CheckOut;
-            public decimal UnitPrice, RoomSubtotal, ServiceAmount, DiscountAmount, GrandTotal;
+            public int CartId;
+            public int RoomId;
+            public int Nights;
+            public int Quantity;
+            public int Guests;
+            public string HotelName;
+            public string City;
+            public string RoomType;
+            public string Services;
+            public DateTime CheckIn;
+            public DateTime CheckOut;
+            public decimal UnitPrice;
+            public decimal RoomSubtotal;
+            public decimal ServiceAmount;
+            public decimal DiscountAmount;
         }
-        private readonly List<CartLine> lines = new();
-        private ListBox lstSummary;
-        private Label lblRoomTotal, lblServiceTotal, lblDiscountTotal, lblGrandTotal, lblCouponStatus, lblError;
-        private ComboBox cboPayment;
-        private Label lblTransaction;
-        private TextBox txtTransaction, txtCoupon;
-        private Button btnConfirm, btnApplyCoupon, btnRemoveCoupon;
-        private Panel bottomPanel;
+
+        private List<CartLine> cartLines = new List<CartLine>();
+
+        private ListBox summaryList;
+        private ComboBox paymentBox;
+        private TextBox transactionText;
+        private TextBox couponText;
+
+        private Label roomTotalLabel;
+        private Label serviceTotalLabel;
+        private Label discountTotalLabel;
+        private Label grandTotalLabel;
+        private Label couponStatusLabel;
+        private Label transactionLabel;
+        private Label errorLabel;
+        private Label customerLabel;
+
+        private Button confirmButton;
+        private Button applyCouponButton;
+        private Button removeCouponButton;
+
+        private Panel invoicePanel;
+
         private string appliedCouponCode = "";
         private decimal couponDiscount = 0m;
+
         public CheckoutForm()
         {
             InitializeComponent();
+            LoadCustomerDetails();
             LoadCart();
         }
+
         private void InitializeComponent()
         {
             Text = "Resortify - Checkout";
@@ -40,585 +71,1217 @@ namespace Resortify.Forms
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.FromArgb(247, 249, 251);
             Font = UIHelper.BaseFont;
-            var root = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                Padding = new Padding(24, 102, 24, 20),
-                ColumnCount = 2,
-                RowCount = 1
-            }
-            ;
+
+            TableLayoutPanel root = new TableLayoutPanel();
+            root.Dock = DockStyle.Fill;
+            root.Padding = new Padding(24, 102, 24, 20);
+            root.ColumnCount = 2;
+            root.RowCount = 1;
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 56));
             root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44));
-            var summary = new Panel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Padding = new Padding(14),
-                BorderStyle = BorderStyle.FixedSingle
-            }
-            ;
-            var title = new Label
-            {
-                Text = "Booking Summary",
-                Dock = DockStyle.Top,
-                Height = 36,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                ForeColor = UIHelper.NavyHeader
-            }
-            ;
-            lstSummary = new ListBox
-            {
-                Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9F),
-                IntegralHeight = false,
-                HorizontalScrollbar = true,
-                BorderStyle = BorderStyle.None
-            }
-            ;
-            summary.Controls.Add(lstSummary);
-            summary.Controls.Add(title);
-            root.Controls.Add(summary, 0, 0);
-            var payment = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                BackColor = Color.White,
-                Padding = new Padding(18),
-                ColumnCount = 1,
-                RowCount = 9,
-                BorderStyle = BorderStyle.FixedSingle
-            }
-            ;
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
-            payment.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            payment.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-            payment.Controls.Add(new Label
-            {
-                Text = "Payment & Discount",
-                Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                ForeColor = UIHelper.NavyHeader,
-                TextAlign = ContentAlignment.MiddleLeft
-            }
-            , 0, 0);
-            cboPayment = new ComboBox
-            {
-                Dock = DockStyle.Fill,
-                DropDownStyle = ComboBoxStyle.DropDownList,
-                Margin = new Padding(0, 4, 0, 4)
-            }
-            ;
-            cboPayment.Items.AddRange(new object[] {
-                "Pay at Hotel", "Credit Card", "Debit Card", "bKash", "Nagad", "Rocket", "Mobile Banking"
-            }
-            );
-            cboPayment.SelectedIndex = 0;
-            cboPayment.SelectedIndexChanged += (s, e) => UpdatePaymentFields();
-            payment.Controls.Add(cboPayment, 0, 1);
-            lblTransaction = new Label
-            {
-                Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
-                TextAlign = ContentAlignment.MiddleLeft
-            }
-            ;
-            payment.Controls.Add(lblTransaction, 0, 2);
-            txtTransaction = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 3, 0, 3),
-                PlaceholderText = "Enter transaction ID"
-            }
-            ;
-            payment.Controls.Add(txtTransaction, 0, 3);
-            var paymentInfo = new Label
-            {
-                Text = "Pay at Hotel confirms immediately. Online payments require a transaction ID and stay pending until the hotel validates it.",
-                Dock = DockStyle.Fill,
-                ForeColor = Color.DimGray,
-                Padding = new Padding(0, 5, 0, 4),
-                AutoSize = false,
-                AutoEllipsis = true
-            }
-            ;
-            payment.Controls.Add(paymentInfo, 0, 4);
-            var couponPanel = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 3,
-                RowCount = 2,
-                Margin = new Padding(0, 2, 0, 2)
-            }
-            ;
-            couponPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
-            couponPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88));
-            couponPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
-            couponPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            couponPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
-            txtCoupon = new TextBox
-            {
-                Dock = DockStyle.Fill,
-                Margin = new Padding(0, 4, 6, 4),
-                PlaceholderText = "Coupon code"
-            }
-            ;
-            btnApplyCoupon = UIHelper.MakeButton("Apply", UIHelper.CustomerColor, 80, 30);
-            btnApplyCoupon.Dock = DockStyle.Fill;
-            btnApplyCoupon.Margin = new Padding(0, 4, 6, 4);
-            btnApplyCoupon.Click += (s, e) => ApplyCoupon();
-            btnRemoveCoupon = UIHelper.MakeButton("Remove", Color.FromArgb(95, 95, 95), 70, 30);
-            btnRemoveCoupon.Dock = DockStyle.Fill;
-            btnRemoveCoupon.Margin = new Padding(0, 4, 0, 4);
-            btnRemoveCoupon.Click += (s, e) => RemoveCoupon();
-            lblCouponStatus = new Label
-            {
-                Text = "Have a coupon? Try WELCOME10, RESORT15 or GETAWAY20.",
-                Dock = DockStyle.Fill,
-                ForeColor = Color.DimGray,
-                TextAlign = ContentAlignment.MiddleLeft,
-                AutoEllipsis = true
-            }
-            ;
-            couponPanel.Controls.Add(txtCoupon, 0, 0);
-            couponPanel.Controls.Add(btnApplyCoupon, 1, 0);
-            couponPanel.Controls.Add(btnRemoveCoupon, 2, 0);
-            couponPanel.Controls.Add(lblCouponStatus, 0, 1);
-            couponPanel.SetColumnSpan(lblCouponStatus, 3);
-            payment.Controls.Add(couponPanel, 0, 5);
-            var totals = new TableLayoutPanel
-            {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 4,
-                Margin = new Padding(0, 5, 0, 3),
-                Padding = new Padding(0, 4, 0, 4)
-            }
-            ;
-            totals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62));
-            totals.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));
-            totals.Controls.Add(new Label
-            {
-                Text = "Room subtotal",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            }
-            , 0, 0);
-            lblRoomTotal = Amount();
-            totals.Controls.Add(lblRoomTotal, 1, 0);
-            totals.Controls.Add(new Label
-            {
-                Text = "Services / extras",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            }
-            , 0, 1);
-            lblServiceTotal = Amount();
-            totals.Controls.Add(lblServiceTotal, 1, 1);
-            totals.Controls.Add(new Label
-            {
-                Text = "Total discount",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft
-            }
-            , 0, 2);
-            lblDiscountTotal = Amount();
-            totals.Controls.Add(lblDiscountTotal, 1, 2);
-            totals.Controls.Add(new Label
-            {
-                Text = "Grand total",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleLeft,
-                Font = new Font("Segoe UI", 10F, FontStyle.Bold)
-            }
-            , 0, 3);
-            lblGrandTotal = Amount(true);
-            totals.Controls.Add(lblGrandTotal, 1, 3);
-            payment.Controls.Add(totals, 0, 6);
-            lblError = UIHelper.MakeErrorLabel();
-            lblError.Dock = DockStyle.Fill;
-            lblError.AutoSize = false;
-            lblError.TextAlign = ContentAlignment.MiddleLeft;
-            payment.Controls.Add(lblError, 0, 7);
-            btnConfirm = UIHelper.MakeButton("Confirm Booking", UIHelper.CustomerColor, 230, 40);
-            btnConfirm.Anchor = AnchorStyles.Right;
-            btnConfirm.Click += BtnPay_Click;
-            payment.Controls.Add(btnConfirm, 0, 8);
-            root.Controls.Add(payment, 1, 0);
-            bottomPanel = new Panel
-            {
-                Dock = DockStyle.Bottom,
-                Height = 0,
-                Visible = false
-            }
-            ;
-            Controls.Add(bottomPanel);
+
+            // Booking summary on the left.
+            Panel summaryPanel = new Panel();
+            summaryPanel.Dock = DockStyle.Fill;
+            summaryPanel.BackColor = Color.White;
+            summaryPanel.Padding = new Padding(14);
+            summaryPanel.BorderStyle = BorderStyle.FixedSingle;
+
+            Label summaryTitle = new Label();
+            summaryTitle.Text = "Booking Summary";
+            summaryTitle.Dock = DockStyle.Top;
+            summaryTitle.Height = 34;
+            summaryTitle.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+            summaryTitle.ForeColor = UIHelper.NavyHeader;
+
+            customerLabel = new Label();
+            customerLabel.Dock = DockStyle.Top;
+            customerLabel.Height = 62;
+            customerLabel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            customerLabel.ForeColor = UIHelper.CustomerColor;
+            customerLabel.Text = "Customer details: Loading...";
+
+            summaryList = new ListBox();
+            summaryList.Dock = DockStyle.Fill;
+            summaryList.Font = new Font("Segoe UI", 9F);
+            summaryList.IntegralHeight = false;
+            summaryList.HorizontalScrollbar = true;
+            summaryList.BorderStyle = BorderStyle.None;
+
+            summaryPanel.Controls.Add(summaryList);
+            summaryPanel.Controls.Add(customerLabel);
+            summaryPanel.Controls.Add(summaryTitle);
+            root.Controls.Add(summaryPanel, 0, 0);
+
+            // Payment section on the right.
+            TableLayoutPanel paymentPanel = new TableLayoutPanel();
+            paymentPanel.Dock = DockStyle.Fill;
+            paymentPanel.BackColor = Color.White;
+            paymentPanel.Padding = new Padding(18);
+            paymentPanel.ColumnCount = 1;
+            paymentPanel.RowCount = 9;
+            paymentPanel.BorderStyle = BorderStyle.FixedSingle;
+
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
+
+            Label paymentTitle = new Label();
+            paymentTitle.Text = "Payment & Discount";
+            paymentTitle.Dock = DockStyle.Fill;
+            paymentTitle.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+            paymentTitle.ForeColor = UIHelper.NavyHeader;
+            paymentPanel.Controls.Add(paymentTitle, 0, 0);
+
+            paymentBox = new ComboBox();
+            paymentBox.Dock = DockStyle.Fill;
+            paymentBox.DropDownStyle = ComboBoxStyle.DropDownList;
+            paymentBox.Items.Add("Pay at Hotel");
+            paymentBox.Items.Add("Credit Card");
+            paymentBox.Items.Add("Debit Card");
+            paymentBox.Items.Add("bKash");
+            paymentBox.Items.Add("Nagad");
+            paymentBox.Items.Add("Rocket");
+            paymentBox.Items.Add("Mobile Banking");
+            paymentBox.SelectedIndex = 0;
+            paymentBox.SelectedIndexChanged += PaymentChanged;
+            paymentPanel.Controls.Add(paymentBox, 0, 1);
+
+            transactionLabel = new Label();
+            transactionLabel.Dock = DockStyle.Fill;
+            transactionLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            paymentPanel.Controls.Add(transactionLabel, 0, 2);
+
+            transactionText = new TextBox();
+            transactionText.Dock = DockStyle.Fill;
+            transactionText.Margin = new Padding(0, 3, 0, 3);
+            transactionText.PlaceholderText = "Enter transaction ID";
+            paymentPanel.Controls.Add(transactionText, 0, 3);
+
+            Label paymentInfo = new Label();
+            paymentInfo.Text = "Pay at Hotel confirms immediately. Online payments require a transaction ID and stay pending until the hotel validates it.";
+            paymentInfo.Dock = DockStyle.Fill;
+            paymentInfo.ForeColor = Color.DimGray;
+            paymentInfo.AutoEllipsis = true;
+            paymentPanel.Controls.Add(paymentInfo, 0, 4);
+
+            TableLayoutPanel couponPanel = CreateCouponPanel();
+            paymentPanel.Controls.Add(couponPanel, 0, 5);
+
+            TableLayoutPanel totalsPanel = CreateTotalsPanel();
+            paymentPanel.Controls.Add(totalsPanel, 0, 6);
+
+            errorLabel = UIHelper.MakeErrorLabel();
+            errorLabel.Dock = DockStyle.Fill;
+            errorLabel.AutoSize = false;
+            paymentPanel.Controls.Add(errorLabel, 0, 7);
+
+            confirmButton = UIHelper.MakeButton(
+                "Confirm Booking",
+                UIHelper.CustomerColor,
+                230,
+                40);
+            confirmButton.Anchor = AnchorStyles.Right;
+            confirmButton.Click += ConfirmBooking_Click;
+            paymentPanel.Controls.Add(confirmButton, 0, 8);
+
+            root.Controls.Add(paymentPanel, 1, 0);
+
             Controls.Add(root);
-            Controls.Add(UIHelper.BuildHeader("Checkout", UIHelper.CustomerColor, (s, e) => Close(), null));
+
+            invoicePanel = new Panel();
+            invoicePanel.Dock = DockStyle.Bottom;
+            invoicePanel.Height = 0;
+            invoicePanel.Visible = false;
+            Controls.Add(invoicePanel);
+
+            Controls.Add(UIHelper.BuildHeader(
+                "Checkout",
+                UIHelper.CustomerColor,
+                Back_Click,
+                null));
+
             UpdatePaymentFields();
         }
-        private Label Amount(bool strong = false) => new Label
+
+        private TableLayoutPanel CreateCouponPanel()
         {
-            Dock = DockStyle.Fill,
-            TextAlign = ContentAlignment.MiddleRight,
-            Font = new Font("Segoe UI", strong ? 14F : 10F, FontStyle.Bold),
-            ForeColor = UIHelper.CustomerColor
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.ColumnCount = 3;
+            panel.RowCount = 2;
+
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 58));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 88));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 72));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
+            panel.RowStyles.Add(new RowStyle(SizeType.Absolute, 26));
+
+            couponText = new TextBox();
+            couponText.Dock = DockStyle.Fill;
+            couponText.Margin = new Padding(0, 4, 6, 4);
+            couponText.PlaceholderText = "Coupon code";
+
+            applyCouponButton = UIHelper.MakeButton(
+                "Apply", UIHelper.CustomerColor, 80, 30);
+            applyCouponButton.Dock = DockStyle.Fill;
+            applyCouponButton.Margin = new Padding(0, 4, 6, 4);
+            applyCouponButton.Click += ApplyCoupon_Click;
+
+            removeCouponButton = UIHelper.MakeButton(
+                "Remove", Color.FromArgb(95, 95, 95), 70, 30);
+            removeCouponButton.Dock = DockStyle.Fill;
+            removeCouponButton.Margin = new Padding(0, 4, 0, 4);
+            removeCouponButton.Click += RemoveCoupon_Click;
+
+            couponStatusLabel = new Label();
+            couponStatusLabel.Text = "Have a coupon? Try WELCOME10, RESORT15 or GETAWAY20.";
+            couponStatusLabel.Dock = DockStyle.Fill;
+            couponStatusLabel.ForeColor = Color.DimGray;
+            couponStatusLabel.AutoEllipsis = true;
+
+            panel.Controls.Add(couponText, 0, 0);
+            panel.Controls.Add(applyCouponButton, 1, 0);
+            panel.Controls.Add(removeCouponButton, 2, 0);
+            panel.Controls.Add(couponStatusLabel, 0, 1);
+            panel.SetColumnSpan(couponStatusLabel, 3);
+
+            return panel;
         }
-        ;
+
+        private TableLayoutPanel CreateTotalsPanel()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel();
+            panel.Dock = DockStyle.Fill;
+            panel.ColumnCount = 2;
+            panel.RowCount = 4;
+            panel.Padding = new Padding(0, 4, 0, 4);
+
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 62));
+            panel.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 38));
+
+            panel.Controls.Add(MakeAmountText("Room subtotal"), 0, 0);
+            roomTotalLabel = CreateAmountLabel(false);
+            panel.Controls.Add(roomTotalLabel, 1, 0);
+
+            panel.Controls.Add(MakeAmountText("Services / extras"), 0, 1);
+            serviceTotalLabel = CreateAmountLabel(false);
+            panel.Controls.Add(serviceTotalLabel, 1, 1);
+
+            panel.Controls.Add(MakeAmountText("Total discount"), 0, 2);
+            discountTotalLabel = CreateAmountLabel(false);
+            panel.Controls.Add(discountTotalLabel, 1, 2);
+
+            Label grandText = MakeAmountText("Grand total");
+            grandText.Font = new Font("Segoe UI", 10F, FontStyle.Bold);
+            panel.Controls.Add(grandText, 0, 3);
+
+            grandTotalLabel = CreateAmountLabel(true);
+            panel.Controls.Add(grandTotalLabel, 1, 3);
+
+            return panel;
+        }
+
+        private Label MakeAmountText(string text)
+        {
+            Label label = new Label();
+            label.Text = text;
+            label.Dock = DockStyle.Fill;
+            label.TextAlign = ContentAlignment.MiddleLeft;
+            return label;
+        }
+
+        private Label CreateAmountLabel(bool strong)
+        {
+            Label label = new Label();
+            label.Dock = DockStyle.Fill;
+            label.TextAlign = ContentAlignment.MiddleRight;
+            label.Font = new Font(
+                "Segoe UI",
+                strong ? 14F : 10F,
+                FontStyle.Bold);
+            label.ForeColor = UIHelper.CustomerColor;
+            return label;
+        }
+
+        private void LoadCustomerDetails()
+        {
+            string sql = @"
+                SELECT FullName, Email, Phone, Address
+                FROM Users
+                WHERE UserId=@Id";
+
+            DataTable table = DbHelper.GetDataTable(
+                sql,
+                new SqlParameter("@Id", Session.UserId));
+
+            if (table.Rows.Count == 0)
+            {
+                customerLabel.Text = "Customer details not found.";
+                return;
+            }
+
+            DataRow row = table.Rows[0];
+            string name = row["FullName"].ToString();
+            string email = row["Email"].ToString();
+            string phone = row["Phone"] == DBNull.Value ? "Not added" : row["Phone"].ToString();
+            string address = row["Address"] == DBNull.Value ? "Not added" : row["Address"].ToString();
+
+            customerLabel.Text =
+                "Booking for: " + name +
+                "\r\nEmail: " + email +
+                "  •  Phone: " + phone +
+                "  •  Address: " + address;
+        }
+
         private void LoadCart()
         {
-            var table = DbHelper.GetDataTable(@"SELECT c.CartId,c.RoomId,h.HotelName,h.City,r.RoomType,c.CheckInDate,c.CheckOutDate,c.Quantity,c.Guests,c.DiscountAmount,DATEDIFF(DAY,c.CheckInDate,c.CheckOutDate) Nights,r.PricePerNight,
-                ISNULL((SELECT SUM(cs.UnitPrice*cs.Quantity) FROM CartServices cs WHERE cs.CartId=c.CartId),0) ServiceAmount,
-                ISNULL((SELECT STRING_AGG(CONCAT(sc.ServiceName,CASE WHEN sc.IsFree=1 THEN ' (Free)' ELSE CONCAT(' (+$',FORMAT(cs.UnitPrice,'N2'),')') END),', ') FROM CartServices cs JOIN ServiceCatalog sc ON sc.ServiceId=cs.ServiceId WHERE cs.CartId=c.CartId),'None') Services
-                FROM Cart c JOIN Rooms r ON r.RoomId=c.RoomId JOIN Hotels h ON h.HotelId=r.HotelId WHERE c.CustomerId=@Id ORDER BY c.AddedDate", new SqlParameter("@Id", Session.UserId));
-            lines.Clear();
-            lstSummary.Items.Clear();
-            foreach (DataRow r in table.Rows)
+            string sql = @"
+                SELECT
+                    c.CartId,
+                    c.RoomId,
+                    h.HotelName,
+                    h.City,
+                    r.RoomType,
+                    c.CheckInDate,
+                    c.CheckOutDate,
+                    c.Quantity,
+                    c.Guests,
+                    c.DiscountAmount,
+                    DATEDIFF(DAY, c.CheckInDate, c.CheckOutDate) AS Nights,
+                    r.PricePerNight,
+                    ISNULL(
+                        (SELECT SUM(cs.UnitPrice * cs.Quantity)
+                         FROM CartServices cs
+                         WHERE cs.CartId=c.CartId), 0) AS ServiceAmount,
+                    ISNULL(
+                        (SELECT STRING_AGG(
+                            CONCAT(sc.ServiceName,
+                                CASE WHEN sc.IsFree=1 THEN ' (Free)'
+                                ELSE CONCAT(' (+$', FORMAT(cs.UnitPrice,'N2'), ')') END),
+                            ', ')
+                         FROM CartServices cs
+                         JOIN ServiceCatalog sc ON sc.ServiceId=cs.ServiceId
+                         WHERE cs.CartId=c.CartId), 'None') AS Services
+                FROM Cart c
+                JOIN Rooms r ON r.RoomId=c.RoomId
+                JOIN Hotels h ON h.HotelId=r.HotelId
+                WHERE c.CustomerId=@Id
+                ORDER BY c.AddedDate";
+
+            DataTable table = DbHelper.GetDataTable(
+                sql,
+                new SqlParameter("@Id", Session.UserId));
+
+            cartLines.Clear();
+            summaryList.Items.Clear();
+
+            foreach (DataRow row in table.Rows)
             {
-                int nights = Convert.ToInt32(r["Nights"]), qty = Convert.ToInt32(r["Quantity"]);
-                decimal unit = Convert.ToDecimal(r["PricePerNight"]), room = unit * nights * qty, service = Convert.ToDecimal(r["ServiceAmount"]), discount = Convert.ToDecimal(r["DiscountAmount"]);
-                var line = new CartLine
-                {
-                    CartId = Convert.ToInt32(r["CartId"]),
-                    RoomId = Convert.ToInt32(r["RoomId"]),
-                    HotelName = r["HotelName"].ToString(),
-                    City = r["City"].ToString(),
-                    RoomType = r["RoomType"].ToString(),
-                    CheckIn = Convert.ToDateTime(r["CheckInDate"]),
-                    CheckOut = Convert.ToDateTime(r["CheckOutDate"]),
-                    Nights = nights,
-                    Quantity = qty,
-                    Guests = Convert.ToInt32(r["Guests"]),
-                    Services = r["Services"].ToString(),
-                    UnitPrice = unit,
-                    RoomSubtotal = room,
-                    ServiceAmount = service,
-                    DiscountAmount = discount
-                }
-                ;
-                lines.Add(line);
-                lstSummary.Items.Add($"{line.HotelName} • {line.City}\n{line.RoomType} • {line.CheckIn:dd MMM yyyy} → {line.CheckOut:dd MMM yyyy} • {nights} night(s) • {qty} room(s) • {line.Guests} guest(s)\nRoom: ${room:N2} • Services: ${service:N2} • Offer: -${discount:N2}\nServices: {line.Services}");
+                CartLine line = new CartLine();
+                line.CartId = Convert.ToInt32(row["CartId"]);
+                line.RoomId = Convert.ToInt32(row["RoomId"]);
+                line.HotelName = row["HotelName"].ToString();
+                line.City = row["City"].ToString();
+                line.RoomType = row["RoomType"].ToString();
+                line.CheckIn = Convert.ToDateTime(row["CheckInDate"]);
+                line.CheckOut = Convert.ToDateTime(row["CheckOutDate"]);
+                line.Nights = Convert.ToInt32(row["Nights"]);
+                line.Quantity = Convert.ToInt32(row["Quantity"]);
+                line.Guests = Convert.ToInt32(row["Guests"]);
+                line.UnitPrice = Convert.ToDecimal(row["PricePerNight"]);
+                line.ServiceAmount = Convert.ToDecimal(row["ServiceAmount"]);
+                line.DiscountAmount = Convert.ToDecimal(row["DiscountAmount"]);
+                line.RoomSubtotal = line.UnitPrice * line.Nights * line.Quantity;
+                line.Services = row["Services"].ToString();
+
+                cartLines.Add(line);
+
+                string text =
+                    line.HotelName + " • " + line.City + "\n" +
+                    line.RoomType + " • " +
+                    line.CheckIn.ToString("dd MMM yyyy") + " → " +
+                    line.CheckOut.ToString("dd MMM yyyy") + " • " +
+                    line.Nights + " night(s) • " +
+                    line.Quantity + " room(s) • " +
+                    line.Guests + " guest(s)\n" +
+                    "Room: $" + line.RoomSubtotal.ToString("N2") +
+                    " • Services: $" + line.ServiceAmount.ToString("N2") +
+                    " • Offer: -$" + line.DiscountAmount.ToString("N2") + "\n" +
+                    "Services: " + line.Services;
+
+                summaryList.Items.Add(text);
             }
+
             LoadAppliedCoupon();
             RecalculateTotals();
-            btnConfirm.Enabled = lines.Count > 0;
-            if (lines.Count == 0) ShowError("Your cart is empty. Return to the dashboard and select a room.");
+
+            confirmButton.Enabled = cartLines.Count > 0;
+
+            if (cartLines.Count == 0)
+            {
+                ShowError("Your cart is empty. Return to the dashboard and select a room.");
+            }
         }
+
         private void LoadAppliedCoupon()
         {
             appliedCouponCode = "";
-            couponDiscount = 0m;
-            if (lines.Count == 0)
+            couponDiscount = 0;
+
+            if (cartLines.Count == 0)
             {
-                lblCouponStatus.Text = "Enter a coupon code if you have one.";
+                couponStatusLabel.Text = "Enter a coupon code if you have one.";
                 return;
             }
-            var t = DbHelper.GetDataTable("SELECT CouponCode,DiscountAmount FROM CartCoupons WHERE CustomerId=@Id", new SqlParameter("@Id", Session.UserId));
-            if (t.Rows.Count > 0)
+
+            DataTable table = DbHelper.GetDataTable(
+                "SELECT CouponCode, DiscountAmount FROM CartCoupons WHERE CustomerId=@Id",
+                new SqlParameter("@Id", Session.UserId));
+
+            if (table.Rows.Count > 0)
             {
-                appliedCouponCode = Convert.ToString(t.Rows[0]["CouponCode"]) ?? "";
-                couponDiscount = Convert.ToDecimal(t.Rows[0]["DiscountAmount"]);
-                txtCoupon.Text = appliedCouponCode;
-                lblCouponStatus.Text = $"Coupon {appliedCouponCode} applied: -${couponDiscount:N2}";
-                lblCouponStatus.ForeColor = UIHelper.CustomerColor;
+                appliedCouponCode = table.Rows[0]["CouponCode"].ToString();
+                couponDiscount = Convert.ToDecimal(table.Rows[0]["DiscountAmount"]);
+                couponText.Text = appliedCouponCode;
+
+                couponStatusLabel.Text = "Coupon " +
+                    appliedCouponCode + " applied: -$" +
+                    couponDiscount.ToString("N2");
+                couponStatusLabel.ForeColor = UIHelper.CustomerColor;
             }
-            else lblCouponStatus.Text = "Have a coupon? Try WELCOME10, RESORT15 or GETAWAY20.";
+            else
+            {
+                couponStatusLabel.Text =
+                    "Have a coupon? Try WELCOME10, RESORT15 or GETAWAY20.";
+            }
         }
-        private decimal BaseAfterOffers()
+
+        private decimal GetRoomTotal()
         {
-            decimal room = 0, services = 0, offers = 0;
-            foreach (var l in lines)
+            decimal total = 0;
+            foreach (CartLine line in cartLines)
             {
-                room += l.RoomSubtotal;
-                services += l.ServiceAmount;
-                offers += l.DiscountAmount;
+                total += line.RoomSubtotal;
             }
-            return Math.Max(0m, room + services - offers);
+            return total;
         }
+
+        private decimal GetServiceTotal()
+        {
+            decimal total = 0;
+            foreach (CartLine line in cartLines)
+            {
+                total += line.ServiceAmount;
+            }
+            return total;
+        }
+
+        private decimal GetOfferDiscount()
+        {
+            decimal total = 0;
+            foreach (CartLine line in cartLines)
+            {
+                total += line.DiscountAmount;
+            }
+            return total;
+        }
+
+        private decimal GetBaseTotal()
+        {
+            decimal roomTotal = GetRoomTotal();
+            decimal serviceTotal = GetServiceTotal();
+            decimal offerDiscount = GetOfferDiscount();
+
+            decimal total = roomTotal + serviceTotal - offerDiscount;
+            if (total < 0)
+            {
+                total = 0;
+            }
+
+            return total;
+        }
+
         private void RecalculateTotals()
         {
-            decimal roomTotal = 0, serviceTotal = 0, offerDiscount = 0;
-            foreach (var l in lines)
+            decimal roomTotal = GetRoomTotal();
+            decimal serviceTotal = GetServiceTotal();
+            decimal offerDiscount = GetOfferDiscount();
+            decimal baseTotal = GetBaseTotal();
+
+            if (couponDiscount > baseTotal)
             {
-                roomTotal += l.RoomSubtotal;
-                serviceTotal += l.ServiceAmount;
-                offerDiscount += l.DiscountAmount;
+                couponDiscount = baseTotal;
             }
-            decimal baseTotal = Math.Max(0m, roomTotal + serviceTotal - offerDiscount);
-            if (couponDiscount > baseTotal) couponDiscount = baseTotal;
+
             decimal totalDiscount = offerDiscount + couponDiscount;
-            decimal grand = Math.Max(0m, baseTotal - couponDiscount);
-            lblRoomTotal.Text = $"${roomTotal:N2}";
-            lblServiceTotal.Text = $"${serviceTotal:N2}";
-            lblDiscountTotal.Text = totalDiscount > 0 ? $"-${totalDiscount:N2}" : "$0.00";
-            lblGrandTotal.Text = $"${grand:N2}";
+            decimal grandTotal = baseTotal - couponDiscount;
+
+            if (grandTotal < 0)
+            {
+                grandTotal = 0;
+            }
+
+            roomTotalLabel.Text = "$" + roomTotal.ToString("N2");
+            serviceTotalLabel.Text = "$" + serviceTotal.ToString("N2");
+
+            if (totalDiscount > 0)
+            {
+                discountTotalLabel.Text = "-$" + totalDiscount.ToString("N2");
+            }
+            else
+            {
+                discountTotalLabel.Text = "$0.00";
+            }
+
+            grandTotalLabel.Text = "$" + grandTotal.ToString("N2");
         }
-        private void ApplyCoupon()
+
+        private void ApplyCoupon_Click(object sender, EventArgs e)
         {
-            lblError.Visible = false;
-            if (lines.Count == 0)
+            HideError();
+
+            if (cartLines.Count == 0)
             {
                 ShowError("Your cart is empty.");
                 return;
             }
-            string code = txtCoupon.Text.Trim().ToUpperInvariant();
+
+            string code = couponText.Text.Trim().ToUpperInvariant();
+
             if (string.IsNullOrWhiteSpace(code))
             {
                 ShowError("Enter a coupon code.");
                 return;
             }
-            decimal baseTotal = BaseAfterOffers();
-            var t = DbHelper.GetDataTable(@"SELECT TOP 1 CouponId,Code,Description,DiscountPercent,MaxDiscountAmount,MinimumBookingAmount,ValidFrom,ValidTo,MaxUses,UsedCount,Active
-                FROM Coupons WHERE UPPER(Code)=@Code", new SqlParameter("@Code", code));
-            if (t.Rows.Count == 0)
+
+            decimal baseTotal = GetBaseTotal();
+
+            string sql = @"
+                SELECT TOP 1 CouponId, Code, DiscountPercent,
+                       MaxDiscountAmount, MinimumBookingAmount,
+                       ValidFrom, ValidTo, MaxUses, UsedCount, Active
+                FROM Coupons
+                WHERE UPPER(Code)=@Code";
+
+            DataTable table = DbHelper.GetDataTable(
+                sql,
+                new SqlParameter("@Code", code));
+
+            if (table.Rows.Count == 0)
             {
                 RemoveCoupon(false);
                 ShowError("Invalid coupon code.");
                 return;
             }
-            DataRow r = t.Rows[0];
-            DateTime today = DateTime.Today;
-            if (!Convert.ToBoolean(r["Active"]) || today < Convert.ToDateTime(r["ValidFrom"]).Date || today > Convert.ToDateTime(r["ValidTo"]).Date)
+
+            DataRow row = table.Rows[0];
+            bool active = Convert.ToBoolean(row["Active"]);
+            DateTime validFrom = Convert.ToDateTime(row["ValidFrom"]);
+            DateTime validTo = Convert.ToDateTime(row["ValidTo"]);
+
+            if (!active || DateTime.Today < validFrom.Date || DateTime.Today > validTo.Date)
             {
                 ShowError("This coupon is not currently valid.");
                 return;
             }
-            if (r["MaxUses"] != DBNull.Value && Convert.ToInt32(r["UsedCount"]) >= Convert.ToInt32(r["MaxUses"]))
+
+            if (row["MaxUses"] != DBNull.Value)
             {
-                ShowError("This coupon has reached its usage limit.");
-                return;
+                int maxUses = Convert.ToInt32(row["MaxUses"]);
+                int usedCount = Convert.ToInt32(row["UsedCount"]);
+
+                if (usedCount >= maxUses)
+                {
+                    ShowError("This coupon has reached its usage limit.");
+                    return;
+                }
             }
-            decimal minimum = Convert.ToDecimal(r["MinimumBookingAmount"]);
+
+            decimal minimum = Convert.ToDecimal(row["MinimumBookingAmount"]);
             if (baseTotal < minimum)
             {
-                ShowError($"This coupon requires a minimum booking of ${minimum:N2}.");
+                ShowError("This coupon requires a minimum booking of $" +
+                    minimum.ToString("N2") + ".");
                 return;
             }
-            decimal discount = Math.Round(baseTotal * Convert.ToDecimal(r["DiscountPercent"]) / 100m, 2);
-            if (r["MaxDiscountAmount"] != DBNull.Value) discount = Math.Min(discount, Convert.ToDecimal(r["MaxDiscountAmount"]));
-            discount = Math.Min(discount, baseTotal);
-            DbHelper.ExecuteNonQuery(@"MERGE CartCoupons AS target USING (SELECT @CustomerId CustomerId) AS source ON target.CustomerId=source.CustomerId
-                WHEN MATCHED THEN UPDATE SET CouponId=@CouponId,CouponCode=@Code,DiscountAmount=@Discount,AppliedAt=GETDATE()
-                WHEN NOT MATCHED THEN INSERT(CustomerId,CouponId,CouponCode,DiscountAmount) VALUES(@CustomerId,@CouponId,@Code,@Discount);",
-            new SqlParameter("@CustomerId", Session.UserId), new SqlParameter("@CouponId", Convert.ToInt32(r["CouponId"])), new SqlParameter("@Code", r["Code"]), new SqlParameter("@Discount", discount));
-            appliedCouponCode = Convert.ToString(r["Code"]) ?? code;
+
+            decimal percent = Convert.ToDecimal(row["DiscountPercent"]);
+            decimal discount = Math.Round(
+                baseTotal * percent / 100m,
+                2);
+
+            if (row["MaxDiscountAmount"] != DBNull.Value)
+            {
+                decimal maxDiscount = Convert.ToDecimal(row["MaxDiscountAmount"]);
+                if (discount > maxDiscount)
+                {
+                    discount = maxDiscount;
+                }
+            }
+
+            if (discount > baseTotal)
+            {
+                discount = baseTotal;
+            }
+
+            string saveSql = @"
+                MERGE CartCoupons AS target
+                USING (SELECT @CustomerId AS CustomerId) AS source
+                ON target.CustomerId=source.CustomerId
+                WHEN MATCHED THEN
+                    UPDATE SET CouponId=@CouponId,
+                               CouponCode=@Code,
+                               DiscountAmount=@Discount,
+                               AppliedAt=GETDATE()
+                WHEN NOT MATCHED THEN
+                    INSERT (CustomerId, CouponId, CouponCode, DiscountAmount)
+                    VALUES (@CustomerId, @CouponId, @Code, @Discount);";
+
+            DbHelper.ExecuteNonQuery(
+                saveSql,
+                new SqlParameter("@CustomerId", Session.UserId),
+                new SqlParameter("@CouponId", Convert.ToInt32(row["CouponId"])),
+                new SqlParameter("@Code", row["Code"]),
+                new SqlParameter("@Discount", discount));
+
+            appliedCouponCode = row["Code"].ToString();
             couponDiscount = discount;
-            lblCouponStatus.Text = $"Coupon {appliedCouponCode} applied: -${discount:N2}";
-            lblCouponStatus.ForeColor = UIHelper.CustomerColor;
+
+            couponStatusLabel.Text = "Coupon " +
+                appliedCouponCode + " applied: -$" +
+                discount.ToString("N2");
+            couponStatusLabel.ForeColor = UIHelper.CustomerColor;
+
             RecalculateTotals();
         }
-        private void RemoveCoupon(bool showMessage = true)
+
+        private void RemoveCoupon_Click(object sender, EventArgs e)
         {
-            DbHelper.ExecuteNonQuery("DELETE FROM CartCoupons WHERE CustomerId=@Id", new SqlParameter("@Id", Session.UserId));
-            appliedCouponCode = "";
-            couponDiscount = 0m;
-            txtCoupon.Clear();
-            lblCouponStatus.Text = "No coupon applied.";
-            lblCouponStatus.ForeColor = Color.DimGray;
-            RecalculateTotals();
-            if (showMessage) MessageBox.Show("Coupon removed.", "Coupon", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            RemoveCoupon(true);
         }
+
+        private void RemoveCoupon(bool showMessage)
+        {
+            DbHelper.ExecuteNonQuery(
+                "DELETE FROM CartCoupons WHERE CustomerId=@Id",
+                new SqlParameter("@Id", Session.UserId));
+
+            appliedCouponCode = "";
+            couponDiscount = 0;
+            couponText.Clear();
+            couponStatusLabel.Text = "No coupon applied.";
+            couponStatusLabel.ForeColor = Color.DimGray;
+
+            RecalculateTotals();
+
+            if (showMessage)
+            {
+                MessageBox.Show(
+                    "Coupon removed.",
+                    "Coupon",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+            }
+        }
+
+        private void PaymentChanged(object sender, EventArgs e)
+        {
+            UpdatePaymentFields();
+        }
+
         private void UpdatePaymentFields()
         {
-            bool online = cboPayment.SelectedItem != null && cboPayment.SelectedItem.ToString() != "Pay at Hotel";
-            lblTransaction.Text = online ? "Transaction ID *  (required for online payment)" : "Transaction ID  (not required for Pay at Hotel)";
-            lblTransaction.ForeColor = online ? Color.Firebrick : Color.FromArgb(70, 70, 70);
-            txtTransaction.Enabled = online;
-            txtTransaction.Visible = online;
-            if (!online) txtTransaction.Clear();
+            bool online = false;
+
+            if (paymentBox.SelectedItem != null)
+            {
+                online = paymentBox.SelectedItem.ToString() != "Pay at Hotel";
+            }
+
+            if (online)
+            {
+                transactionLabel.Text = "Transaction ID *  (required for online payment)";
+                transactionLabel.ForeColor = Color.Firebrick;
+                transactionText.Enabled = true;
+                transactionText.Visible = true;
+            }
+            else
+            {
+                transactionLabel.Text = "Transaction ID  (not required for Pay at Hotel)";
+                transactionLabel.ForeColor = Color.FromArgb(70, 70, 70);
+                transactionText.Enabled = false;
+                transactionText.Visible = false;
+                transactionText.Clear();
+            }
         }
-        private void BtnPay_Click(object sender, EventArgs e)
+
+        private void ConfirmBooking_Click(object sender, EventArgs e)
         {
-            lblError.Visible = false;
-            if (lines.Count == 0) return;
-            if (cboPayment.SelectedItem == null)
+            HideError();
+
+            if (cartLines.Count == 0)
+            {
+                ShowError("Your cart is empty.");
+                return;
+            }
+
+            if (paymentBox.SelectedItem == null)
             {
                 ShowError("Choose a payment option to continue.");
                 return;
             }
-            string method = cboPayment.SelectedItem.ToString();
+
+            string method = paymentBox.SelectedItem.ToString();
             bool online = method != "Pay at Hotel";
-            string transactionId = txtTransaction.Text.Trim();
+            string transactionId = transactionText.Text.Trim();
+
             if (online && string.IsNullOrWhiteSpace(transactionId))
             {
                 ShowError("Please enter the transaction ID for your online payment.");
-                txtTransaction.Focus();
+                transactionText.Focus();
                 return;
             }
-            decimal roomTotal = 0, serviceTotal = 0, offerDiscount = 0;
-            foreach (var l in lines)
+
+            decimal roomTotal = GetRoomTotal();
+            decimal serviceTotal = GetServiceTotal();
+            decimal offerDiscount = GetOfferDiscount();
+            decimal baseTotal = GetBaseTotal();
+
+            if (couponDiscount > baseTotal)
             {
-                roomTotal += l.RoomSubtotal;
-                serviceTotal += l.ServiceAmount;
-                offerDiscount += l.DiscountAmount;
+                couponDiscount = baseTotal;
             }
-            decimal baseTotal = Math.Max(0m, roomTotal + serviceTotal - offerDiscount);
-            couponDiscount = Math.Min(couponDiscount, baseTotal);
+
             decimal totalDiscount = offerDiscount + couponDiscount;
-            decimal grandTotal = Math.Max(0m, baseTotal - couponDiscount);
-            string confirmationText = online
-            ? $"Please review your booking.\n\nPayment method: {method}\nTransaction ID: {transactionId}\nCoupon: {(string.IsNullOrWhiteSpace(appliedCouponCode) ? "None" : appliedCouponCode)}\nDiscount: -${totalDiscount:N2}\nGrand total: ${grandTotal:N2}\n\nYour booking will stay pending until the hotel validates the transaction ID.\n\nSubmit this booking request?"
-            : $"Please review your booking.\n\nPayment method: Pay at Hotel\nCoupon: {(string.IsNullOrWhiteSpace(appliedCouponCode) ? "None" : appliedCouponCode)}\nDiscount: -${totalDiscount:N2}\nGrand total: ${grandTotal:N2}\n\nPay at Hotel bookings are confirmed immediately.\n\nConfirm this booking?";
-            if (MessageBox.Show(confirmationText, online ? "Submit Booking Request" : "Confirm Booking", MessageBoxButtons.YesNo, MessageBoxIcon.Question) != DialogResult.Yes) return;
-            btnConfirm.Enabled = false;
+            decimal grandTotal = baseTotal - couponDiscount;
+
+            if (grandTotal < 0)
+            {
+                grandTotal = 0;
+            }
+
+            string couponName = "None";
+            if (!string.IsNullOrWhiteSpace(appliedCouponCode))
+            {
+                couponName = appliedCouponCode;
+            }
+
+            string confirmationText;
+
+            if (online)
+            {
+                confirmationText =
+                    "Please review your booking.\n\n" +
+                    "Payment method: " + method + "\n" +
+                    "Transaction ID: " + transactionId + "\n" +
+                    "Coupon: " + couponName + "\n" +
+                    "Discount: -$" + totalDiscount.ToString("N2") + "\n" +
+                    "Grand total: $" + grandTotal.ToString("N2") + "\n\n" +
+                    "Your booking will stay pending until the hotel validates the transaction ID.\n\n" +
+                    "Submit this booking request?";
+            }
+            else
+            {
+                confirmationText =
+                    "Please review your booking.\n\n" +
+                    "Payment method: Pay at Hotel\n" +
+                    "Coupon: " + couponName + "\n" +
+                    "Discount: -$" + totalDiscount.ToString("N2") + "\n" +
+                    "Grand total: $" + grandTotal.ToString("N2") + "\n\n" +
+                    "Pay at Hotel bookings are confirmed immediately.\n\n" +
+                    "Confirm this booking?";
+            }
+
+            DialogResult answer = MessageBox.Show(
+                confirmationText,
+                online ? "Submit Booking Request" : "Confirm Booking",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Question);
+
+            if (answer != DialogResult.Yes)
+            {
+                return;
+            }
+
+            confirmButton.Enabled = false;
+
             try
             {
-                int bookingId = 0;
-                DbHelper.RunTransaction((conn, tx) =>
-                {
-                    foreach (var line in lines)
-                    {
-                        using var check = new SqlCommand(@"SELECT r.TotalRooms-ISNULL((SELECT SUM(bi.Quantity) FROM BookingItems bi JOIN Bookings b ON b.BookingId=bi.BookingId WHERE bi.RoomId=r.RoomId AND b.Status IN('Pending','Approved','Confirmed','Completed') AND bi.CheckInDate<c.CheckOutDate AND bi.CheckOutDate>c.CheckInDate),0) FROM Cart c JOIN Rooms r WITH (UPDLOCK,HOLDLOCK) ON r.RoomId=c.RoomId WHERE c.CartId=@Cart AND c.CustomerId=@Cust", conn, tx);
-                        check.Parameters.AddWithValue("@Cart", line.CartId); check.Parameters.AddWithValue("@Cust", Session.UserId);
-                        int available = Convert.ToInt32(check.ExecuteScalar() ?? 0);
-                        if (available < line.Quantity) throw new InvalidOperationException($"{line.RoomType} is no longer available for the selected dates. Only {available} room(s) remain.");
-                    }
-                    if (!string.IsNullOrWhiteSpace(appliedCouponCode))
-                    {
-                        using var couponCheck = new SqlCommand("SELECT CouponId,DiscountPercent,MaxDiscountAmount,MinimumBookingAmount,MaxUses,UsedCount,Active,ValidFrom,ValidTo FROM Coupons WITH (UPDLOCK,HOLDLOCK) WHERE Code=@Code", conn, tx);
-                        couponCheck.Parameters.AddWithValue("@Code", appliedCouponCode);
-                        using var cr = couponCheck.ExecuteReader();
-                        if (!cr.Read()) throw new InvalidOperationException("The coupon is no longer available.");
-                        if (!cr.GetBoolean(cr.GetOrdinal("Active")) || DateTime.Today < cr.GetDateTime(cr.GetOrdinal("ValidFrom")).Date || DateTime.Today > cr.GetDateTime(cr.GetOrdinal("ValidTo")).Date) throw new InvalidOperationException("The coupon is no longer valid.");
-                        int maxUses = cr.IsDBNull(cr.GetOrdinal("MaxUses")) ? 0 : cr.GetInt32(cr.GetOrdinal("MaxUses"));
-                        int used = cr.GetInt32(cr.GetOrdinal("UsedCount"));
-                        if (maxUses > 0 && used >= maxUses) throw new InvalidOperationException("The coupon usage limit has been reached.");
-                        decimal minimum = cr.GetDecimal(cr.GetOrdinal("MinimumBookingAmount"));
-                        if (baseTotal < minimum) throw new InvalidOperationException($"The coupon requires a minimum booking of ${minimum:N2}.");
-                        cr.Close();
-                        using var inc = new SqlCommand("UPDATE Coupons SET UsedCount=UsedCount+1 WHERE Code=@Code", conn, tx); inc.Parameters.AddWithValue("@Code", appliedCouponCode); inc.ExecuteNonQuery();
-                    }
-                    string status = online ? "Pending" : "Confirmed";
-                    using (var cmd = new SqlCommand(@"INSERT INTO Bookings(CustomerId,TotalAmount,RoomAmount,ServiceAmount,DiscountAmount,CouponCode,CouponDiscountAmount,PaymentMethod,TransactionId,Status,CustomerNotificationShown) OUTPUT INSERTED.BookingId VALUES(@Cust,@Total,@Room,@Service,@Discount,@Coupon,@CouponDiscount,@Method,@Txn,@Status,@Shown)", conn, tx))
-                    {
-                        cmd.Parameters.AddWithValue("@Cust", Session.UserId); cmd.Parameters.AddWithValue("@Total", grandTotal); cmd.Parameters.AddWithValue("@Room", roomTotal); cmd.Parameters.AddWithValue("@Service", serviceTotal); cmd.Parameters.AddWithValue("@Discount", totalDiscount); cmd.Parameters.AddWithValue("@Coupon", string.IsNullOrWhiteSpace(appliedCouponCode) ? (object)DBNull.Value : appliedCouponCode); cmd.Parameters.AddWithValue("@CouponDiscount", couponDiscount); cmd.Parameters.AddWithValue("@Method", method); cmd.Parameters.AddWithValue("@Txn", online ? (object)transactionId : DBNull.Value); cmd.Parameters.AddWithValue("@Status", status); cmd.Parameters.AddWithValue("@Shown", online ? 1 : 0); bookingId = (int)cmd.ExecuteScalar();
-                    }
-                    foreach (var line in lines)
-                    {
-                        using var item = new SqlCommand(@"INSERT INTO BookingItems(BookingId,RoomId,CheckInDate,CheckOutDate,Nights,Quantity,Guests,UnitPrice,Subtotal) OUTPUT INSERTED.BookingItemId VALUES(@B,@R,@I,@O,@N,@Q,@G,@U,@S)", conn, tx);
-                        item.Parameters.AddWithValue("@B", bookingId); item.Parameters.AddWithValue("@R", line.RoomId); item.Parameters.AddWithValue("@I", line.CheckIn); item.Parameters.AddWithValue("@O", line.CheckOut); item.Parameters.AddWithValue("@N", line.Nights); item.Parameters.AddWithValue("@Q", line.Quantity); item.Parameters.AddWithValue("@G", line.Guests); item.Parameters.AddWithValue("@U", line.UnitPrice); item.Parameters.AddWithValue("@S", line.RoomSubtotal); int itemId = (int)item.ExecuteScalar();
-                        using var svc = new SqlCommand("INSERT INTO BookingItemServices(BookingItemId,ServiceId,Quantity,UnitPrice) SELECT @Item,ServiceId,Quantity,UnitPrice FROM CartServices WHERE CartId=@Cart", conn, tx); svc.Parameters.AddWithValue("@Item", itemId); svc.Parameters.AddWithValue("@Cart", line.CartId); svc.ExecuteNonQuery();
-                    }
-                    using var clearCoupon = new SqlCommand("DELETE FROM CartCoupons WHERE CustomerId=@Cust", conn, tx); clearCoupon.Parameters.AddWithValue("@Cust", Session.UserId); clearCoupon.ExecuteNonQuery();
-                    using var clearCart = new SqlCommand("DELETE FROM Cart WHERE CustomerId=@Cust", conn, tx); clearCart.Parameters.AddWithValue("@Cust", Session.UserId); clearCart.ExecuteNonQuery();
-                }
-                );
-                ShowInvoice(bookingId, roomTotal, serviceTotal, totalDiscount, grandTotal, method, transactionId, online, appliedCouponCode, couponDiscount);
+                int bookingId = SaveBooking(
+                    roomTotal,
+                    serviceTotal,
+                    totalDiscount,
+                    grandTotal,
+                    method,
+                    transactionId,
+                    online);
+
+                ShowInvoice(
+                    bookingId,
+                    roomTotal,
+                    serviceTotal,
+                    totalDiscount,
+                    grandTotal,
+                    method,
+                    transactionId,
+                    online,
+                    appliedCouponCode,
+                    couponDiscount);
             }
             catch (Exception ex)
             {
-                btnConfirm.Enabled = true;
+                confirmButton.Enabled = true;
                 ShowError(ex.Message);
             }
         }
-        private void ShowInvoice(int id, decimal room, decimal services, decimal discount, decimal total, string method, string transactionId, bool pendingApproval, string couponCode, decimal couponDiscountAmount)
+
+        private int SaveBooking(
+            decimal roomTotal,
+            decimal serviceTotal,
+            decimal totalDiscount,
+            decimal grandTotal,
+            string paymentMethod,
+            string transactionId,
+            bool online)
         {
-            bottomPanel.Visible = true;
-            bottomPanel.Height = 0;
-            var box = new TableLayoutPanel
+            int bookingId = 0;
+
+            DbHelper.RunTransaction((connection, transaction) =>
             {
-                Dock = DockStyle.Fill,
-                ColumnCount = 2,
-                RowCount = 7,
-                Padding = new Padding(16),
-                BackColor = Color.White,
-                BorderStyle = BorderStyle.FixedSingle
+                // 1. Check room availability again before saving.
+                foreach (CartLine line in cartLines)
+                {
+                    string checkSql = @"
+                        SELECT r.TotalRooms - ISNULL(
+                            (
+                                SELECT SUM(bi.Quantity)
+                                FROM BookingItems bi
+                                JOIN Bookings b ON b.BookingId=bi.BookingId
+                                WHERE bi.RoomId=r.RoomId
+                                AND b.Status IN ('Pending','Approved','Confirmed','Completed')
+                                AND bi.CheckInDate < c.CheckOutDate
+                                AND bi.CheckOutDate > c.CheckInDate
+                            ), 0)
+                        FROM Cart c
+                        JOIN Rooms r WITH (UPDLOCK, HOLDLOCK) ON r.RoomId=c.RoomId
+                        WHERE c.CartId=@CartId
+                        AND c.CustomerId=@CustomerId";
+
+                    using (SqlCommand command = new SqlCommand(
+                        checkSql, connection, transaction))
+                    {
+                        command.Parameters.AddWithValue("@CartId", line.CartId);
+                        command.Parameters.AddWithValue("@CustomerId", Session.UserId);
+
+                        object result = command.ExecuteScalar();
+                        int available = Convert.ToInt32(result ?? 0);
+
+                        if (available < line.Quantity)
+                        {
+                            throw new InvalidOperationException(
+                                line.RoomType +
+                                " is no longer available for the selected dates. Only " +
+                                available + " room(s) remain.");
+                        }
+                    }
+                }
+
+                // 2. Check the coupon again because another customer may have used it.
+                if (!string.IsNullOrWhiteSpace(appliedCouponCode))
+                {
+                    CheckCouponInsideTransaction(
+                        connection,
+                        transaction,
+                        GetBaseTotal());
+                }
+
+                string status;
+                if (online)
+                {
+                    status = "Pending";
+                }
+                else
+                {
+                    status = "Confirmed";
+                }
+
+                // 3. Create the booking.
+                string bookingSql = @"
+                    INSERT INTO Bookings
+                    (
+                        CustomerId,
+                        TotalAmount,
+                        RoomAmount,
+                        ServiceAmount,
+                        DiscountAmount,
+                        CouponCode,
+                        CouponDiscountAmount,
+                        PaymentMethod,
+                        TransactionId,
+                        Status,
+                        CustomerNotificationShown
+                    )
+                    OUTPUT INSERTED.BookingId
+                    VALUES
+                    (
+                        @CustomerId,
+                        @TotalAmount,
+                        @RoomAmount,
+                        @ServiceAmount,
+                        @DiscountAmount,
+                        @CouponCode,
+                        @CouponDiscount,
+                        @PaymentMethod,
+                        @TransactionId,
+                        @Status,
+                        @NotificationShown
+                    )";
+
+                using (SqlCommand command = new SqlCommand(
+                    bookingSql, connection, transaction))
+                {
+                    command.Parameters.AddWithValue("@CustomerId", Session.UserId);
+                    command.Parameters.AddWithValue("@TotalAmount", grandTotal);
+                    command.Parameters.AddWithValue("@RoomAmount", roomTotal);
+                    command.Parameters.AddWithValue("@ServiceAmount", serviceTotal);
+                    command.Parameters.AddWithValue("@DiscountAmount", totalDiscount);
+
+                    if (string.IsNullOrWhiteSpace(appliedCouponCode))
+                    {
+                        command.Parameters.AddWithValue("@CouponCode", DBNull.Value);
+                    }
+                    else
+                    {
+                        command.Parameters.AddWithValue("@CouponCode", appliedCouponCode);
+                    }
+
+                    command.Parameters.AddWithValue("@CouponDiscount", couponDiscount);
+                    command.Parameters.AddWithValue("@PaymentMethod", paymentMethod);
+
+                    if (online)
+                    {
+                        command.Parameters.AddWithValue("@TransactionId", transactionId);
+                    }
+                    else
+                    {
+                        command.Parameters.AddWithValue("@TransactionId", DBNull.Value);
+                    }
+
+                    command.Parameters.AddWithValue("@Status", status);
+
+                    if (online)
+                    {
+                        command.Parameters.AddWithValue("@NotificationShown", 1);
+                    }
+                    else
+                    {
+                        command.Parameters.AddWithValue("@NotificationShown", 0);
+                    }
+
+                    bookingId = Convert.ToInt32(command.ExecuteScalar());
+                }
+
+                // 4. Add every cart room to BookingItems.
+                foreach (CartLine line in cartLines)
+                {
+                    string itemSql = @"
+                        INSERT INTO BookingItems
+                        (
+                            BookingId,
+                            RoomId,
+                            CheckInDate,
+                            CheckOutDate,
+                            Nights,
+                            Quantity,
+                            Guests,
+                            UnitPrice,
+                            Subtotal
+                        )
+                        OUTPUT INSERTED.BookingItemId
+                        VALUES
+                        (
+                            @BookingId,
+                            @RoomId,
+                            @CheckIn,
+                            @CheckOut,
+                            @Nights,
+                            @Quantity,
+                            @Guests,
+                            @UnitPrice,
+                            @Subtotal
+                        )";
+
+                    int bookingItemId;
+
+                    using (SqlCommand command = new SqlCommand(
+                        itemSql, connection, transaction))
+                    {
+                        command.Parameters.AddWithValue("@BookingId", bookingId);
+                        command.Parameters.AddWithValue("@RoomId", line.RoomId);
+                        command.Parameters.AddWithValue("@CheckIn", line.CheckIn);
+                        command.Parameters.AddWithValue("@CheckOut", line.CheckOut);
+                        command.Parameters.AddWithValue("@Nights", line.Nights);
+                        command.Parameters.AddWithValue("@Quantity", line.Quantity);
+                        command.Parameters.AddWithValue("@Guests", line.Guests);
+                        command.Parameters.AddWithValue("@UnitPrice", line.UnitPrice);
+                        command.Parameters.AddWithValue("@Subtotal", line.RoomSubtotal);
+
+                        bookingItemId = Convert.ToInt32(command.ExecuteScalar());
+                    }
+
+                    // 5. Copy selected services from CartServices to the booking.
+                    string serviceSql = @"
+                        INSERT INTO BookingItemServices
+                        (BookingItemId, ServiceId, Quantity, UnitPrice)
+                        SELECT
+                            @BookingItemId,
+                            ServiceId,
+                            Quantity,
+                            UnitPrice
+                        FROM CartServices
+                        WHERE CartId=@CartId";
+
+                    using (SqlCommand command = new SqlCommand(
+                        serviceSql, connection, transaction))
+                    {
+                        command.Parameters.AddWithValue("@BookingItemId", bookingItemId);
+                        command.Parameters.AddWithValue("@CartId", line.CartId);
+                        command.ExecuteNonQuery();
+                    }
+                }
+
+                // 6. Increase coupon usage.
+                if (!string.IsNullOrWhiteSpace(appliedCouponCode))
+                {
+                    string increaseCouponSql =
+                        "UPDATE Coupons SET UsedCount=UsedCount+1 WHERE Code=@Code";
+
+                    using (SqlCommand command = new SqlCommand(
+                        increaseCouponSql, connection, transaction))
+                    {
+                        command.Parameters.AddWithValue("@Code", appliedCouponCode);
+                        command.ExecuteNonQuery();
+                    }
+                }
+
+                // 7. Remove the coupon and cart after successful booking.
+                using (SqlCommand command = new SqlCommand(
+                    "DELETE FROM CartCoupons WHERE CustomerId=@CustomerId",
+                    connection,
+                    transaction))
+                {
+                    command.Parameters.AddWithValue("@CustomerId", Session.UserId);
+                    command.ExecuteNonQuery();
+                }
+
+                using (SqlCommand command = new SqlCommand(
+                    "DELETE FROM Cart WHERE CustomerId=@CustomerId",
+                    connection,
+                    transaction))
+                {
+                    command.Parameters.AddWithValue("@CustomerId", Session.UserId);
+                    command.ExecuteNonQuery();
+                }
+            });
+
+            return bookingId;
+        }
+
+        private void CheckCouponInsideTransaction(
+            SqlConnection connection,
+            SqlTransaction transaction,
+            decimal baseTotal)
+        {
+            string sql = @"
+                SELECT DiscountPercent, MaxDiscountAmount,
+                       MinimumBookingAmount, MaxUses, UsedCount,
+                       Active, ValidFrom, ValidTo
+                FROM Coupons WITH (UPDLOCK, HOLDLOCK)
+                WHERE Code=@Code";
+
+            using (SqlCommand command = new SqlCommand(
+                sql, connection, transaction))
+            {
+                command.Parameters.AddWithValue("@Code", appliedCouponCode);
+
+                using (SqlDataReader reader = command.ExecuteReader())
+                {
+                    if (!reader.Read())
+                    {
+                        throw new InvalidOperationException(
+                            "The coupon is no longer available.");
+                    }
+
+                    bool active = reader.GetBoolean(reader.GetOrdinal("Active"));
+                    DateTime validFrom = reader.GetDateTime(
+                        reader.GetOrdinal("ValidFrom"));
+                    DateTime validTo = reader.GetDateTime(
+                        reader.GetOrdinal("ValidTo"));
+
+                    if (!active || DateTime.Today < validFrom.Date ||
+                        DateTime.Today > validTo.Date)
+                    {
+                        throw new InvalidOperationException(
+                            "The coupon is no longer valid.");
+                    }
+
+                    int maxUses = 0;
+                    if (!reader.IsDBNull(reader.GetOrdinal("MaxUses")))
+                    {
+                        maxUses = reader.GetInt32(reader.GetOrdinal("MaxUses"));
+                    }
+
+                    int usedCount = reader.GetInt32(
+                        reader.GetOrdinal("UsedCount"));
+
+                    if (maxUses > 0 && usedCount >= maxUses)
+                    {
+                        throw new InvalidOperationException(
+                            "The coupon usage limit has been reached.");
+                    }
+
+                    decimal minimum = reader.GetDecimal(
+                        reader.GetOrdinal("MinimumBookingAmount"));
+
+                    if (baseTotal < minimum)
+                    {
+                        throw new InvalidOperationException(
+                            "The coupon requires a minimum booking of $" +
+                            minimum.ToString("N2") + ".");
+                    }
+                }
             }
-            ;
+        }
+
+        private void ShowInvoice(
+            int bookingId,
+            decimal roomTotal,
+            decimal serviceTotal,
+            decimal discount,
+            decimal grandTotal,
+            string paymentMethod,
+            string transactionId,
+            bool pendingApproval,
+            string couponCode,
+            decimal couponDiscountAmount)
+        {
+            invoicePanel.Controls.Clear();
+            invoicePanel.Visible = true;
+            invoicePanel.Height = 260;
+
+            TableLayoutPanel box = new TableLayoutPanel();
+            box.Dock = DockStyle.Fill;
+            box.ColumnCount = 2;
+            box.RowCount = 7;
+            box.Padding = new Padding(16);
+            box.BackColor = Color.White;
+            box.BorderStyle = BorderStyle.FixedSingle;
             box.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 70));
             box.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 30));
-            box.Controls.Add(new Label
+
+            Label title = new Label();
+            title.Text = "BOOKING REQUEST SUBMITTED  •  #" + bookingId;
+            title.Dock = DockStyle.Fill;
+            title.Font = new Font("Segoe UI", 14F, FontStyle.Bold);
+            title.ForeColor = UIHelper.NavyHeader;
+            box.Controls.Add(title, 0, 0);
+            box.SetColumnSpan(title, 2);
+
+            string information;
+
+            if (pendingApproval)
             {
-                Text = $"BOOKING REQUEST SUBMITTED  •  #{id}",
-                Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 14F, FontStyle.Bold),
-                ForeColor = UIHelper.NavyHeader
+                information =
+                    "Guest: " + Session.FullName + "\n" +
+                    "Payment option: " + paymentMethod + "\n" +
+                    "Transaction ID: " + transactionId + "\n" +
+                    "Coupon: " + (string.IsNullOrWhiteSpace(couponCode) ? "None" : couponCode) + "\n" +
+                    "Status: Pending transaction validation\n\n" +
+                    "Your cart has been cleared. After the hotel validates your transaction ID, " +
+                    "the booking will be confirmed and the dashboard will notify you.\n" +
+                    "Confirmation email will be sent to your registered email after validation.";
             }
-            , 0, 0);
-            box.SetColumnSpan(box.GetControlFromPosition(0, 0), 2);
-            box.Controls.Add(new Label
+            else
             {
-                Text = pendingApproval ? $"Guest: {Session.FullName}\nPayment option: {method}\nTransaction ID: {transactionId}\nCoupon: {(string.IsNullOrWhiteSpace(couponCode) ? "None" : couponCode)}\nStatus: Pending transaction validation\n\nYour cart has been cleared. After the hotel validates your transaction ID, the booking will be confirmed and the dashboard will notify you.\nConfirmation email will be sent to your registered email after validation." : $"Guest: {Session.FullName}\nPayment option: {method}\nCoupon: {(string.IsNullOrWhiteSpace(couponCode) ? "None" : couponCode)}\nStatus: Confirmed\n\nYour Pay at Hotel booking is confirmed. Your cart has been cleared.",
-                Dock = DockStyle.Fill
+                information =
+                    "Guest: " + Session.FullName + "\n" +
+                    "Payment option: " + paymentMethod + "\n" +
+                    "Coupon: " + (string.IsNullOrWhiteSpace(couponCode) ? "None" : couponCode) + "\n" +
+                    "Status: Confirmed\n\n" +
+                    "Your Pay at Hotel booking is confirmed. Your cart has been cleared.";
             }
-            , 0, 1);
-            box.SetColumnSpan(box.GetControlFromPosition(0, 1), 2);
-            box.Controls.Add(new Label
-            {
-                Text = "Room amount",
-                Dock = DockStyle.Fill
-            }
-            , 0, 2);
-            box.Controls.Add(new Label
-            {
-                Text = $"${room:N2}",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleRight
-            }
-            , 1, 2);
-            box.Controls.Add(new Label
-            {
-                Text = "Services",
-                Dock = DockStyle.Fill
-            }
-            , 0, 3);
-            box.Controls.Add(new Label
-            {
-                Text = $"${services:N2}",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleRight
-            }
-            , 1, 3);
-            box.Controls.Add(new Label
-            {
-                Text = $"Discount {(string.IsNullOrWhiteSpace(couponCode) ? "" : "(coupon " + couponCode + ")")}",
-                Dock = DockStyle.Fill
-            }
-            , 0, 4);
-            box.Controls.Add(new Label
-            {
-                Text = $"-${discount:N2}",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleRight
-            }
-            , 1, 4);
-            box.Controls.Add(new Label
-            {
-                Text = "Grand total",
-                Dock = DockStyle.Fill,
-                Font = new Font("Segoe UI", 11F, FontStyle.Bold)
-            }
-            , 0, 5);
-            box.Controls.Add(new Label
-            {
-                Text = $"${total:N2}",
-                Dock = DockStyle.Fill,
-                TextAlign = ContentAlignment.MiddleRight,
-                Font = new Font("Segoe UI", 12F, FontStyle.Bold),
-                ForeColor = UIHelper.CustomerColor
-            }
-            , 1, 5);
-            var done = UIHelper.MakeButton("View My Bookings", UIHelper.CustomerColor, 200, 36);
-            done.Anchor = AnchorStyles.None;
-            done.Click += (s, e) => {
-                new BookingHistoryForm().Show();
-                Close();
-            }
-            ;
-            box.Controls.Add(done, 0, 6);
-            box.SetColumnSpan(done, 2);
-            bottomPanel.Controls.Add(box);
-            bottomPanel.Height = 260;
+
+            Label details = new Label();
+            details.Text = information;
+            details.Dock = DockStyle.Fill;
+            box.Controls.Add(details, 0, 1);
+            box.SetColumnSpan(details, 2);
+
+            AddInvoiceRow(box, "Room amount", "$" + roomTotal.ToString("N2"), 2);
+            AddInvoiceRow(box, "Services", "$" + serviceTotal.ToString("N2"), 3);
+            AddInvoiceRow(box, "Discount", "-$" + discount.ToString("N2"), 4);
+            AddInvoiceRow(box, "Grand total", "$" + grandTotal.ToString("N2"), 5);
+
+            Button doneButton = UIHelper.MakeButton(
+                "View My Bookings",
+                UIHelper.CustomerColor,
+                200,
+                36);
+            doneButton.Anchor = AnchorStyles.None;
+            doneButton.Click += ViewBookings_Click;
+            box.Controls.Add(doneButton, 0, 6);
+            box.SetColumnSpan(doneButton, 2);
+
+            invoicePanel.Controls.Add(box);
         }
-        private void ShowError(string text)
+
+        private void AddInvoiceRow(
+            TableLayoutPanel panel,
+            string name,
+            string value,
+            int row)
         {
-            lblError.Text = text;
-            lblError.Visible = true;
+            Label nameLabel = new Label();
+            nameLabel.Text = name;
+            nameLabel.Dock = DockStyle.Fill;
+            panel.Controls.Add(nameLabel, 0, row);
+
+            Label valueLabel = new Label();
+            valueLabel.Text = value;
+            valueLabel.Dock = DockStyle.Fill;
+            valueLabel.TextAlign = ContentAlignment.MiddleRight;
+            panel.Controls.Add(valueLabel, 1, row);
+        }
+
+        private void ViewBookings_Click(object sender, EventArgs e)
+        {
+            BookingHistoryForm history = new BookingHistoryForm();
+            history.Show();
+            Close();
+        }
+
+        private void Back_Click(object sender, EventArgs e)
+        {
+            Close();
+        }
+
+        private void ShowError(string message)
+        {
+            errorLabel.Text = message;
+            errorLabel.Visible = true;
+        }
+
+        private void HideError()
+        {
+            errorLabel.Text = "";
+            errorLabel.Visible = false;
         }
     }
 }

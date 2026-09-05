@@ -22,12 +22,15 @@ namespace Resortify.Forms
         private Label lblServices;
         private Label lblEmpty;
         private Label lblCoupon;
+        private Label lblCustomerDetails;
+        private Label lblPaymentMethods;
 
         private int selectedCartId = 0;
 
         public BookingCartForm()
         {
             InitializeComponent();
+            LoadCustomerDetails();
             LoadData();
         }
 
@@ -50,10 +53,36 @@ namespace Resortify.Forms
             root.Dock = DockStyle.Fill;
             root.Padding = new Padding(24, 18, 24, 20);
             root.ColumnCount = 1;
-            root.RowCount = 3;
-            root.RowStyles.Add(new RowStyle(SizeType.Percent, 58));
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 205));
+            root.RowCount = 4;
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 190));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
+
+            // Customer information and payment methods.
+            Panel customerBox = new Panel();
+            customerBox.Dock = DockStyle.Fill;
+            customerBox.BackColor = Color.White;
+            customerBox.BorderStyle = BorderStyle.FixedSingle;
+            customerBox.Padding = new Padding(12);
+
+            lblCustomerDetails = new Label();
+            lblCustomerDetails.Location = new Point(12, 8);
+            lblCustomerDetails.Size = new Size(620, 58);
+            lblCustomerDetails.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
+            lblCustomerDetails.ForeColor = UIHelper.NavyHeader;
+            lblCustomerDetails.Text = "Customer: Loading...";
+
+            lblPaymentMethods = new Label();
+            lblPaymentMethods.Location = new Point(650, 8);
+            lblPaymentMethods.Size = new Size(420, 58);
+            lblPaymentMethods.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            lblPaymentMethods.ForeColor = UIHelper.CustomerColor;
+            lblPaymentMethods.Text = "Payment methods:\r\nPay at Hotel • Credit Card • Debit Card • bKash • Nagad • Rocket • Mobile Banking";
+
+            customerBox.Controls.Add(lblCustomerDetails);
+            customerBox.Controls.Add(lblPaymentMethods);
+            root.Controls.Add(customerBox, 0, 0);
 
             Panel cartBox = new Panel();
             cartBox.Dock = DockStyle.Fill;
@@ -87,7 +116,7 @@ namespace Resortify.Forms
             lblEmpty.Visible = false;
             cartBox.Controls.Add(lblEmpty);
 
-            root.Controls.Add(cartBox, 0, 0);
+            root.Controls.Add(cartBox, 0, 1);
 
             // Editor for the selected cart item.
             TableLayoutPanel editor = new TableLayoutPanel();
@@ -148,7 +177,7 @@ namespace Resortify.Forms
             lblError.Dock = DockStyle.Fill;
             editor.Controls.Add(lblError, 2, 2);
 
-            root.Controls.Add(editor, 0, 1);
+            root.Controls.Add(editor, 0, 2);
 
             // Bottom buttons.
             FlowLayoutPanel bottom = new FlowLayoutPanel();
@@ -192,8 +221,39 @@ namespace Resortify.Forms
             bottom.Controls.Add(lblCoupon);
             bottom.Controls.Add(lblTotal);
 
-            root.Controls.Add(bottom, 0, 2);
+            root.Controls.Add(bottom, 0, 3);
             Controls.Add(root);
+        }
+
+        private void LoadCustomerDetails()
+        {
+            string sql = @"
+                SELECT FullName, Email, Phone, Address
+                FROM Users
+                WHERE UserId=@Id";
+
+            DataTable table = DbHelper.GetDataTable(
+                sql,
+                new SqlParameter("@Id", Session.UserId));
+
+            if (table.Rows.Count == 0)
+            {
+                lblCustomerDetails.Text = "Customer details not found.";
+                return;
+            }
+
+            DataRow row = table.Rows[0];
+
+            string name = row["FullName"].ToString();
+            string email = row["Email"].ToString();
+            string phone = row["Phone"] == DBNull.Value ? "Not added" : row["Phone"].ToString();
+            string address = row["Address"] == DBNull.Value ? "Not added" : row["Address"].ToString();
+
+            lblCustomerDetails.Text =
+                "Booking for: " + name +
+                "\r\nEmail: " + email +
+                "  •  Phone: " + phone +
+                "  •  Address: " + address;
         }
 
         private Label MakeLabel(string text)
