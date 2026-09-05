@@ -54,6 +54,12 @@ namespace Resortify.Forms
         private Panel invoicePanel;
 
         private string appliedCouponCode = "";
+        private TableLayoutPanel root;
+        private Panel summaryPanel;
+        private Label summaryTitle;
+        private TableLayoutPanel paymentPanel;
+        private Label paymentTitle;
+        private Label paymentInfo;
         private decimal couponDiscount = 0m;
 
         public CheckoutForm()
@@ -65,149 +71,193 @@ namespace Resortify.Forms
 
         private void InitializeComponent()
         {
-            Text = "Resortify - Checkout";
-            ClientSize = new Size(1120, 720);
-            MinimumSize = new Size(980, 650);
-            StartPosition = FormStartPosition.CenterScreen;
-            BackColor = Color.FromArgb(247, 249, 251);
-            Font = UIHelper.BaseFont;
-
-            TableLayoutPanel root = new TableLayoutPanel();
-            root.Dock = DockStyle.Fill;
-            root.Padding = new Padding(24, 102, 24, 20);
-            root.ColumnCount = 2;
-            root.RowCount = 1;
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 56));
-            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44));
-
-            // Booking summary on the left.
-            Panel summaryPanel = new Panel();
-            summaryPanel.Dock = DockStyle.Fill;
-            summaryPanel.BackColor = Color.White;
-            summaryPanel.Padding = new Padding(14);
-            summaryPanel.BorderStyle = BorderStyle.FixedSingle;
-
-            Label summaryTitle = new Label();
-            summaryTitle.Text = "Booking Summary";
-            summaryTitle.Dock = DockStyle.Top;
-            summaryTitle.Height = 34;
-            summaryTitle.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-            summaryTitle.ForeColor = UIHelper.NavyHeader;
-
-            customerLabel = new Label();
-            customerLabel.Dock = DockStyle.Top;
-            customerLabel.Height = 62;
-            customerLabel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
-            customerLabel.ForeColor = UIHelper.CustomerColor;
-            customerLabel.Text = "Customer details: Loading...";
-
+            root = new TableLayoutPanel();
+            summaryPanel = new Panel();
             summaryList = new ListBox();
-            summaryList.Dock = DockStyle.Fill;
-            summaryList.Font = new Font("Segoe UI", 9F);
-            summaryList.IntegralHeight = false;
-            summaryList.HorizontalScrollbar = true;
-            summaryList.BorderStyle = BorderStyle.None;
-
+            customerLabel = new Label();
+            summaryTitle = new Label();
+            paymentPanel = new TableLayoutPanel();
+            paymentTitle = new Label();
+            paymentBox = new ComboBox();
+            transactionLabel = new Label();
+            transactionText = new TextBox();
+            paymentInfo = new Label();
+            invoicePanel = new Panel();
+            root.SuspendLayout();
+            summaryPanel.SuspendLayout();
+            paymentPanel.SuspendLayout();
+            SuspendLayout();
+            // 
+            // root
+            // 
+            root.ColumnCount = 2;
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 56F));
+            root.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 44F));
+            root.Controls.Add(summaryPanel, 0, 0);
+            root.Controls.Add(paymentPanel, 1, 0);
+            root.Dock = DockStyle.Fill;
+            root.Location = new Point(0, 0);
+            root.Name = "root";
+            root.Padding = new Padding(24, 102, 24, 20);
+            root.RowCount = 1;
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
+            root.Size = new Size(1120, 720);
+            root.TabIndex = 0;
+            // 
+            // summaryPanel
+            // 
+            summaryPanel.BackColor = Color.White;
+            summaryPanel.BorderStyle = BorderStyle.FixedSingle;
             summaryPanel.Controls.Add(summaryList);
             summaryPanel.Controls.Add(customerLabel);
             summaryPanel.Controls.Add(summaryTitle);
-            root.Controls.Add(summaryPanel, 0, 0);
-
-            // Payment section on the right.
-            TableLayoutPanel paymentPanel = new TableLayoutPanel();
-            paymentPanel.Dock = DockStyle.Fill;
+            summaryPanel.Dock = DockStyle.Fill;
+            summaryPanel.Location = new Point(27, 105);
+            summaryPanel.Name = "summaryPanel";
+            summaryPanel.Padding = new Padding(14);
+            summaryPanel.Size = new Size(594, 592);
+            summaryPanel.TabIndex = 0;
+            // 
+            // summaryList
+            // 
+            summaryList.BorderStyle = BorderStyle.None;
+            summaryList.Dock = DockStyle.Fill;
+            summaryList.Font = new Font("Segoe UI", 9F);
+            summaryList.HorizontalScrollbar = true;
+            summaryList.IntegralHeight = false;
+            summaryList.ItemHeight = 15;
+            summaryList.Location = new Point(14, 110);
+            summaryList.Name = "summaryList";
+            summaryList.Size = new Size(564, 466);
+            summaryList.TabIndex = 0;
+            // 
+            // customerLabel
+            // 
+            customerLabel.Dock = DockStyle.Top;
+            customerLabel.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
+            customerLabel.ForeColor = Color.FromArgb(35, 110, 68);
+            customerLabel.Location = new Point(14, 48);
+            customerLabel.Name = "customerLabel";
+            customerLabel.Size = new Size(564, 62);
+            customerLabel.TabIndex = 1;
+            customerLabel.Text = "Customer details: Loading...";
+            // 
+            // summaryTitle
+            // 
+            summaryTitle.Dock = DockStyle.Top;
+            summaryTitle.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
+            summaryTitle.ForeColor = Color.FromArgb(21, 34, 56);
+            summaryTitle.Location = new Point(14, 14);
+            summaryTitle.Name = "summaryTitle";
+            summaryTitle.Size = new Size(564, 34);
+            summaryTitle.TabIndex = 2;
+            summaryTitle.Text = "Booking Summary";
+            // 
+            // paymentPanel
+            // 
             paymentPanel.BackColor = Color.White;
-            paymentPanel.Padding = new Padding(18);
-            paymentPanel.ColumnCount = 1;
-            paymentPanel.RowCount = 9;
             paymentPanel.BorderStyle = BorderStyle.FixedSingle;
-
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 72));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38));
-            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 48));
-
-            Label paymentTitle = new Label();
-            paymentTitle.Text = "Payment & Discount";
+            paymentPanel.ColumnCount = 1;
+            paymentPanel.ColumnStyles.Add(new ColumnStyle(SizeType.Absolute, 20F));
+            paymentPanel.Controls.Add(paymentTitle, 0, 0);
+            paymentPanel.Controls.Add(paymentBox, 0, 1);
+            paymentPanel.Controls.Add(transactionLabel, 0, 2);
+            paymentPanel.Controls.Add(transactionText, 0, 3);
+            paymentPanel.Controls.Add(paymentInfo, 0, 4);
+            paymentPanel.Dock = DockStyle.Fill;
+            paymentPanel.Location = new Point(627, 105);
+            paymentPanel.Name = "paymentPanel";
+            paymentPanel.Padding = new Padding(18);
+            paymentPanel.RowCount = 9;
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 36F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 42F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 28F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 58F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 72F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 38F));
+            paymentPanel.RowStyles.Add(new RowStyle(SizeType.Absolute, 48F));
+            paymentPanel.Size = new Size(466, 592);
+            paymentPanel.TabIndex = 1;
+            // 
+            // paymentTitle
+            // 
             paymentTitle.Dock = DockStyle.Fill;
             paymentTitle.Font = new Font("Segoe UI", 12F, FontStyle.Bold);
-            paymentTitle.ForeColor = UIHelper.NavyHeader;
-            paymentPanel.Controls.Add(paymentTitle, 0, 0);
-
-            paymentBox = new ComboBox();
+            paymentTitle.ForeColor = Color.FromArgb(21, 34, 56);
+            paymentTitle.Location = new Point(21, 18);
+            paymentTitle.Name = "paymentTitle";
+            paymentTitle.Size = new Size(422, 36);
+            paymentTitle.TabIndex = 0;
+            paymentTitle.Text = "Payment & Discount";
+            // 
+            // paymentBox
+            // 
             paymentBox.Dock = DockStyle.Fill;
             paymentBox.DropDownStyle = ComboBoxStyle.DropDownList;
-            paymentBox.Items.Add("Pay at Hotel");
-            paymentBox.Items.Add("Credit Card");
-            paymentBox.Items.Add("Debit Card");
-            paymentBox.Items.Add("bKash");
-            paymentBox.Items.Add("Nagad");
-            paymentBox.Items.Add("Rocket");
-            paymentBox.Items.Add("Mobile Banking");
-            paymentBox.SelectedIndex = 0;
+            paymentBox.Items.AddRange(new object[] { "Pay at Hotel", "Credit Card", "Debit Card", "bKash", "Nagad", "Rocket", "Mobile Banking" });
+            paymentBox.Location = new Point(21, 57);
+            paymentBox.Name = "paymentBox";
+            paymentBox.Size = new Size(422, 25);
+            paymentBox.TabIndex = 1;
             paymentBox.SelectedIndexChanged += PaymentChanged;
-            paymentPanel.Controls.Add(paymentBox, 0, 1);
-
-            transactionLabel = new Label();
+            // 
+            // transactionLabel
+            // 
             transactionLabel.Dock = DockStyle.Fill;
             transactionLabel.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
-            paymentPanel.Controls.Add(transactionLabel, 0, 2);
-
-            transactionText = new TextBox();
+            transactionLabel.Location = new Point(21, 96);
+            transactionLabel.Name = "transactionLabel";
+            transactionLabel.Size = new Size(422, 28);
+            transactionLabel.TabIndex = 2;
+            // 
+            // transactionText
+            // 
             transactionText.Dock = DockStyle.Fill;
+            transactionText.Location = new Point(18, 127);
             transactionText.Margin = new Padding(0, 3, 0, 3);
+            transactionText.Name = "transactionText";
             transactionText.PlaceholderText = "Enter transaction ID";
-            paymentPanel.Controls.Add(transactionText, 0, 3);
-
-            Label paymentInfo = new Label();
-            paymentInfo.Text = "Pay at Hotel confirms immediately. Online payments require a transaction ID and stay pending until the hotel validates it.";
+            transactionText.Size = new Size(428, 24);
+            transactionText.TabIndex = 3;
+            // 
+            // paymentInfo
+            // 
+            paymentInfo.AutoEllipsis = true;
             paymentInfo.Dock = DockStyle.Fill;
             paymentInfo.ForeColor = Color.DimGray;
-            paymentInfo.AutoEllipsis = true;
-            paymentPanel.Controls.Add(paymentInfo, 0, 4);
-
-            TableLayoutPanel couponPanel = CreateCouponPanel();
-            paymentPanel.Controls.Add(couponPanel, 0, 5);
-
-            TableLayoutPanel totalsPanel = CreateTotalsPanel();
-            paymentPanel.Controls.Add(totalsPanel, 0, 6);
-
-            errorLabel = UIHelper.MakeErrorLabel();
-            errorLabel.Dock = DockStyle.Fill;
-            errorLabel.AutoSize = false;
-            paymentPanel.Controls.Add(errorLabel, 0, 7);
-
-            confirmButton = UIHelper.MakeButton(
-                "Confirm Booking",
-                UIHelper.CustomerColor,
-                230,
-                40);
-            confirmButton.Anchor = AnchorStyles.Right;
-            confirmButton.Click += ConfirmBooking_Click;
-            paymentPanel.Controls.Add(confirmButton, 0, 8);
-
-            root.Controls.Add(paymentPanel, 1, 0);
-
-            Controls.Add(root);
-
-            invoicePanel = new Panel();
+            paymentInfo.Location = new Point(21, 162);
+            paymentInfo.Name = "paymentInfo";
+            paymentInfo.Size = new Size(422, 58);
+            paymentInfo.TabIndex = 4;
+            paymentInfo.Text = "Pay at Hotel confirms immediately. Online payments require a transaction ID and stay pending until the hotel validates it.";
+            // 
+            // invoicePanel
+            // 
             invoicePanel.Dock = DockStyle.Bottom;
-            invoicePanel.Height = 0;
+            invoicePanel.Location = new Point(0, 720);
+            invoicePanel.Name = "invoicePanel";
+            invoicePanel.Size = new Size(1120, 0);
+            invoicePanel.TabIndex = 1;
             invoicePanel.Visible = false;
+            // 
+            // CheckoutForm
+            // 
+            BackColor = Color.FromArgb(247, 249, 251);
+            ClientSize = new Size(1120, 720);
+            Controls.Add(root);
             Controls.Add(invoicePanel);
-
-            Controls.Add(UIHelper.BuildHeader(
-                "Checkout",
-                UIHelper.CustomerColor,
-                Back_Click,
-                null));
-
-            UpdatePaymentFields();
+            Font = new Font("Segoe UI", 9.5F);
+            MinimumSize = new Size(980, 650);
+            Name = "CheckoutForm";
+            StartPosition = FormStartPosition.CenterScreen;
+            Text = "Resortify - Checkout";
+            root.ResumeLayout(false);
+            summaryPanel.ResumeLayout(false);
+            paymentPanel.ResumeLayout(false);
+            paymentPanel.PerformLayout();
+            ResumeLayout(false);
         }
 
         private TableLayoutPanel CreateCouponPanel()

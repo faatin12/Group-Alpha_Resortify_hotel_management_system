@@ -54,7 +54,7 @@ namespace Resortify.Forms
             root.Padding = new Padding(24, 18, 24, 20);
             root.ColumnCount = 1;
             root.RowCount = 4;
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 78));
+            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 105));
             root.RowStyles.Add(new RowStyle(SizeType.Percent, 55));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 190));
             root.RowStyles.Add(new RowStyle(SizeType.Absolute, 58));
@@ -68,17 +68,17 @@ namespace Resortify.Forms
 
             lblCustomerDetails = new Label();
             lblCustomerDetails.Location = new Point(12, 8);
-            lblCustomerDetails.Size = new Size(620, 58);
+            lblCustomerDetails.Size = new Size(620, 82);
             lblCustomerDetails.Font = new Font("Segoe UI", 9F, FontStyle.Bold);
             lblCustomerDetails.ForeColor = UIHelper.NavyHeader;
             lblCustomerDetails.Text = "Customer: Loading...";
 
             lblPaymentMethods = new Label();
             lblPaymentMethods.Location = new Point(650, 8);
-            lblPaymentMethods.Size = new Size(420, 58);
+            lblPaymentMethods.Size = new Size(420, 82);
             lblPaymentMethods.Font = new Font("Segoe UI", 8.5F, FontStyle.Bold);
             lblPaymentMethods.ForeColor = UIHelper.CustomerColor;
-            lblPaymentMethods.Text = "Payment methods:\r\nPay at Hotel • Credit Card • Debit Card • bKash • Nagad • Rocket • Mobile Banking";
+            lblPaymentMethods.Text = "Payment methods available at Checkout:\r\nPay at Hotel • Credit Card • Debit Card\r\nbKash • Nagad • Rocket • Mobile Banking";
 
             customerBox.Controls.Add(lblCustomerDetails);
             customerBox.Controls.Add(lblPaymentMethods);
@@ -250,9 +250,10 @@ namespace Resortify.Forms
             string address = row["Address"] == DBNull.Value ? "Not added" : row["Address"].ToString();
 
             lblCustomerDetails.Text =
-                "Booking for: " + name +
-                "\r\nEmail: " + email +
-                "  •  Phone: " + phone +
+                "Customer Details\r\n" +
+                "Name: " + name +
+                "  •  Email: " + email +
+                "\r\nPhone: " + phone +
                 "  •  Address: " + address;
         }
 
