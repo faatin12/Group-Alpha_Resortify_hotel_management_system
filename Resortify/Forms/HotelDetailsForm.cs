@@ -5,6 +5,10 @@ using System.Windows.Forms;
 using Microsoft.Data.SqlClient;
 using Resortify.Data;
 using Resortify.Helpers;
+using System;
+using System.Data;
+using System.Drawing;
+using System.Windows.Forms;
 
 namespace Resortify.Forms
 {
@@ -446,6 +450,55 @@ namespace Resortify.Forms
                 service.IsFree = free;
 
                 serviceList.Items.Add(service, false);
+            }
+        }
+
+        private void UpdateAvailableRoomsCount()
+        {
+            if (cboRoom.SelectedValue == null || cboRoom.SelectedValue is DataRowView) return;
+
+            int roomId = Convert.ToInt32(cboRoom.SelectedValue);
+            DateTime checkIn = dtCheckIn.Value.Date;
+            DateTime checkOut = dtCheckOut.Value.Date;
+
+            // 1. Get total rooms configured by admin
+            var roomTable = DbHelper.GetDataTable(
+                "SELECT TotalRooms FROM Rooms WHERE RoomId = @RoomId",
+                new SqlParameter("@RoomId", roomId));
+
+            if (roomTable.Rows.Count == 0) return;
+            int totalRooms = Convert.ToInt32(roomTable.Rows[0]["TotalRooms"]);
+
+            // 2. Count overlapping confirmed bookings safely by counting items
+            string overlapQuery = @"
+                SELECT ISNULL(COUNT(bi.RoomId), 0) 
+                FROM BookingItems bi
+                JOIN Bookings b ON b.BookingId = bi.BookingId
+                WHERE bi.RoomId = @RoomId 
+                  AND b.Status = 'Confirmed'
+                  AND bi.CheckInDate < @CheckOut 
+                  AND bi.CheckOutDate > @CheckIn";
+
+            int bookedRooms = Convert.ToInt32(DbHelper.ExecuteScalar(overlapQuery,
+                new SqlParameter("@RoomId", roomId),
+                new SqlParameter("@CheckIn", checkIn),
+                new SqlParameter("@CheckOut", checkOut)));
+
+            // 3. Compute available rooms
+            int availableRooms = Math.Max(0, totalRooms - bookedRooms);
+
+            // 4. Render output message and adjust constraints
+            if (availableRooms > 0)
+            {
+                lblAvailability.Text = $"✔ Live Status: {availableRooms} rooms available for selected dates.";
+                lblAvailability.ForeColor = Color.FromArgb(46, 125, 50); // Green
+                numQty.Maximum = Math.Max(1, availableRooms);
+            }
+            else
+            {
+                lblAvailability.Text = "✖ Fully Booked for these selected dates!";
+                lblAvailability.ForeColor = Color.FromArgb(198, 40, 40); // Red
+                numQty.Maximum = 1;
             }
         }
 

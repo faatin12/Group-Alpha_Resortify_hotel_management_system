@@ -191,9 +191,29 @@ namespace Resortify.Forms
             if (MessageBox.Show("Delete this room type?", "Confirm", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) != DialogResult.Yes)
                 return;
 
-            DbHelper.ExecuteNonQuery("DELETE FROM Rooms WHERE RoomId = @Id", new SqlParameter("@Id", editingRoomId.Value));
-            ClearForm();
-            LoadData();
+            try
+            {
+                DbHelper.RunTransaction((conn, tx) =>
+                {
+                    void Exec(string sql)
+                    {
+                        using var cmd = new SqlCommand(sql, conn, tx);
+                        cmd.Parameters.AddWithValue("@Id", editingRoomId.Value);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    Exec("DELETE FROM Offers WHERE RoomId = @Id");
+                    Exec("DELETE FROM Cart WHERE RoomId = @Id");
+                    Exec("DELETE FROM Rooms WHERE RoomId = @Id");
+                });
+
+                ClearForm();
+                LoadData();
+            }
+            catch (Exception)
+            {
+                ShowError("Cannot delete this room because it has active dependencies or records.");
+            }
         }
 
         private void ShowError(string message)

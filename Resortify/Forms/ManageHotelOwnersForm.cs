@@ -28,31 +28,37 @@ namespace Resortify.Forms
             Controls.Add(UIHelper.BuildHeader("Manage Hotel Owners", UIHelper.SuperAdmin,
                 onBack: (s, e) => Close(), onLogout: null));
 
-            grid = new DataGridView { Location = new Point(24, 100), Size = new Size(872, 380) };
+            // Adjusted grid size to fit nicely within the 880 width window with padding
+            grid = new DataGridView { Location = new Point(24, 100), Size = new Size(832, 380) };
             UIHelper.StyleGrid(grid);
             Controls.Add(grid);
 
-            var btnApprove = UIHelper.MakeButton("Approve Account", Color.FromArgb(46, 125, 50), 160);
-            btnApprove.Location = new Point(24, 494);
-            btnApprove.Click += (s, e) => UpdateUserStatus("Approved");
+            // Action Buttons neatly spaced out at the bottom
+            var btnApproveUser = UIHelper.MakeButton("Approve User", Color.FromArgb(46, 125, 50), 130);
+            btnApproveUser.Location = new Point(24, 494);
+            btnApproveUser.Click += (s, e) => UpdateUserStatus("Approved");
 
-            var btnReject = UIHelper.MakeButton("Reject Account", Color.FromArgb(198, 40, 40), 160);
-            btnReject.Location = new Point(196, 494);
-            btnReject.Click += (s, e) => UpdateUserStatus("Rejected");
+            var btnRejectUser = UIHelper.MakeButton("Reject User", Color.FromArgb(198, 40, 40), 130);
+            btnRejectUser.Location = new Point(160, 494);
+            btnRejectUser.Click += (s, e) => UpdateUserStatus("Rejected");
 
-            var btnSuspend = UIHelper.MakeButton("Suspend Hotel", Color.FromArgb(214, 118, 27), 150);
-            btnSuspend.Location = new Point(368, 494);
+            var btnApproveHotel = UIHelper.MakeButton("Approve Hotel", Color.FromArgb(0, 102, 204), 130);
+            btnApproveHotel.Location = new Point(296, 494);
+            btnApproveHotel.Click += (s, e) => ApproveHotel();
+
+            var btnSuspend = UIHelper.MakeButton("Suspend Hotel", Color.FromArgb(214, 118, 27), 120);
+            btnSuspend.Location = new Point(432, 494);
             btnSuspend.Click += (s, e) => SuspendHotel();
 
-            var btnDelete = UIHelper.MakeButton("Delete Hotel", Color.FromArgb(120, 20, 20), 150);
-            btnDelete.Location = new Point(530, 494);
+            var btnDelete = UIHelper.MakeButton("Delete Hotel", Color.FromArgb(120, 20, 20), 120);
+            btnDelete.Location = new Point(558, 494);
             btnDelete.Click += (s, e) => DeleteHotel();
 
-            var btnRefresh = UIHelper.MakeButton("Refresh", Color.Gray, 110);
-            btnRefresh.Location = new Point(786, 494);
+            var btnRefresh = UIHelper.MakeButton("Refresh", Color.Gray, 90);
+            btnRefresh.Location = new Point(684, 494);
             btnRefresh.Click += (s, e) => LoadData();
 
-            Controls.AddRange(new Control[] { btnApprove, btnReject, btnSuspend, btnDelete, btnRefresh });
+            Controls.AddRange(new Control[] { btnApproveUser, btnRejectUser, btnApproveHotel, btnSuspend, btnDelete, btnRefresh });
         }
 
         private void LoadData()
@@ -96,15 +102,31 @@ namespace Resortify.Forms
             LoadData();
         }
 
+        private void ApproveHotel()
+        {
+            if (!TryGetSelectedUserId(out _, out int hotelId, out bool hasHotel)) return;
+            if (!hasHotel)
+            {
+                MessageBox.Show("This owner has not registered a hotel yet.", "Resortify", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            DbHelper.ExecuteNonQuery("UPDATE Hotels SET Status = 'Approved' WHERE HotelId = @Id",
+                new SqlParameter("@Id", hotelId));
+
+            MessageBox.Show("Hotel approved successfully! Customers can now view it.", "Resortify", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            LoadData();
+        }
+
         private void SuspendHotel()
         {
             if (!TryGetSelectedUserId(out _, out int hotelId, out bool hasHotel)) return;
             if (!hasHotel)
             {
-                MessageBox.Show("This owner has not registered a hotel yet.", "Resortify");
+                MessageBox.Show("This owner has not registered a hotel yet.", "Resortify", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
-            // Suspending hides the hotel's rooms from Customer search without deleting booking history.
+
             DbHelper.ExecuteNonQuery("UPDATE Hotels SET Status = 'Suspended' WHERE HotelId = @Id",
                 new SqlParameter("@Id", hotelId));
             LoadData();
@@ -115,7 +137,7 @@ namespace Resortify.Forms
             if (!TryGetSelectedUserId(out _, out int hotelId, out bool hasHotel)) return;
             if (!hasHotel)
             {
-                MessageBox.Show("This owner has not registered a hotel yet.", "Resortify");
+                MessageBox.Show("This owner has not registered a hotel yet.", "Resortify", MessageBoxButtons.OK, MessageBoxIcon.Information);
                 return;
             }
 

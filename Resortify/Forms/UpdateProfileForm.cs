@@ -45,7 +45,7 @@ namespace Resortify.Forms
             var (l2, t2) = Field("Phone"); txtPhone = t2;
             var (l3, t3) = Field("Address"); txtAddress = t3;
 
-            lblError = UIHelper.MakeErrorLabel();
+            lblError = UIHelper.MakeErrorLabel(); //lvl error fixed here 
             lblError.Location = new Point(32, y);
             y += 20;
 
