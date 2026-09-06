@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 using System.Drawing;
 using System.Windows.Forms;
 using Microsoft.Data.SqlClient;
@@ -38,7 +39,7 @@ namespace Resortify.Forms
             var navPanel = new FlowLayoutPanel
             {
                 Location = new Point(24, 260),
-                Size = new Size(832, 360),
+                Size = new Size(832, 480), // Increased height to accommodate the new status button
                 FlowDirection = FlowDirection.LeftToRight
             };
 
@@ -48,6 +49,69 @@ namespace Resortify.Forms
             AddNav(navPanel, "Earnings &&\nBooking Report", () => new EarningsReportForm());
             AddNav(navPanel, "Create Discount\nOffer", () => new CreateOfferForm());
             AddNav(navPanel, "Reviews on My\nHotel", () => new AdminReviewsForm());
+
+            // Built-in Booking & Payment Status feature window
+            AddNav(navPanel, "Booking &&\nPayment Status", () => {
+                var statusForm = new Form
+                {
+                    Text = "Booking & Payment Status Tracker",
+                    Size = new Size(850, 450),
+                    StartPosition = FormStartPosition.CenterScreen
+                };
+
+                var dgv = new DataGridView
+                {
+                    Dock = DockStyle.Fill,
+                    AutoSizeColumnsMode = DataGridViewAutoSizeColumnsMode.Fill,
+                    ReadOnly = true
+                };
+
+                statusForm.Controls.Add(dgv);
+
+                int hotelId = Session.HotelId ?? 0;
+                string query = @"
+                    SELECT 
+                        b.BookingId AS [Booking ID],
+                        u.FullName AS [Customer Name],
+                        r.RoomType AS [Room Type],
+                        bi.CheckInDate AS [Check-In],
+                        bi.CheckOutDate AS [Check-Out],
+                        b.BookingType AS [Booking Type],
+                        b.Status AS [Booking Status],
+                        b.PaymentStatus AS [Payment Status]
+                    FROM Bookings b
+                    JOIN Users u ON b.CustomerId = u.UserId
+                    JOIN BookingItems bi ON b.BookingId = bi.BookingId
+                    JOIN Rooms r ON bi.RoomId = r.RoomId
+                    WHERE r.HotelId = @HotelId
+                    ORDER BY bi.CheckInDate DESC";
+
+                try
+                {
+                    DataTable dt = new DataTable();
+                    string connString = Resortify.Data.DbHelper.ConnectionString;
+
+                    using (SqlConnection conn = new SqlConnection(connString))
+                    {
+                        using (SqlCommand cmd = new SqlCommand(query, conn))
+                        {
+                            cmd.Parameters.AddWithValue("@HotelId", hotelId);
+                            using (SqlDataAdapter da = new SqlDataAdapter(cmd))
+                            {
+                                da.Fill(dt);
+                            }
+                        }
+                    }
+                    dgv.DataSource = dt;
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show("Error loading bookings: " + ex.Message, "Error", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+
+                return statusForm;
+            });
+
             AddNav(navPanel, "Update Profile", () => new UpdateProfileForm());
             Controls.Add(navPanel);
         }
