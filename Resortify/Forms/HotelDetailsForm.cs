@@ -491,14 +491,14 @@ namespace Resortify.Forms
             if (availableRooms > 0)
             {
                 lblAvailability.Text = $"✔ Live Status: {availableRooms} rooms available for selected dates.";
-                lblAvailability.ForeColor = Color.FromArgb(46, 125, 50); // Green
-                numQty.Maximum = Math.Max(1, availableRooms);
+                lblAvailability.ForeColor = Color.FromArgb(46, 125, 50);
+                numRooms.Maximum = Math.Max(1, availableRooms);
             }
             else
             {
                 lblAvailability.Text = "✖ Fully Booked for these selected dates!";
-                lblAvailability.ForeColor = Color.FromArgb(198, 40, 40); // Red
-                numQty.Maximum = 1;
+                lblAvailability.ForeColor = Color.FromArgb(198, 40, 40);
+                numRooms.Maximum = 1;
             }
         }
 
