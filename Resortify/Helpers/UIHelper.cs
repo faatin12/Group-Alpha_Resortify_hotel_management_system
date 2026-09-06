@@ -10,14 +10,15 @@ namespace Resortify.Helpers
     /// </summary>
     public static class UIHelper
     {
-        public static readonly Color NavyHeader   = Color.FromArgb(21, 34, 56);
-        public static readonly Color SuperAdmin   = Color.FromArgb(178, 34, 34);   // red
-        public static readonly Color AdminColor   = Color.FromArgb(214, 118, 27);  // orange
-        public static readonly Color CustomerColor= Color.FromArgb(35, 110, 68);   // green
-        public static readonly Color Neutral      = Color.FromArgb(60, 60, 60);
-        public static readonly Color LowStockRed  = Color.FromArgb(198, 40, 40);
-        public static readonly Font  TitleFont    = new Font("Segoe UI", 14F, FontStyle.Bold);
-        public static readonly Font  BaseFont     = new Font("Segoe UI", 9.5F);
+        public static readonly Color NavyHeader = Color.FromArgb(21, 34, 56);
+        public static readonly Color SuperAdmin = Color.FromArgb(178, 34, 34);   // red
+        public static readonly Color AdminColor = Color.FromArgb(214, 118, 27);  // orange
+        public static readonly Color CustomerColor = Color.FromArgb(35, 110, 68);   // green
+        public static readonly Color AccentPurple = Color.FromArgb(106, 76, 175);  // Login/Sign Up accent
+        public static readonly Color Neutral = Color.FromArgb(60, 60, 60);
+        public static readonly Color LowStockRed = Color.FromArgb(198, 40, 40);
+        public static readonly Font TitleFont = new Font("Segoe UI", 14F, FontStyle.Bold);
+        public static readonly Font BaseFont = new Font("Segoe UI", 9.5F);
 
         /// <summary>
         /// Builds the shared navy "RESORTIFY" bar + a role-coloured strip with
@@ -87,6 +88,29 @@ namespace Resortify.Helpers
                 Height = height,
                 Cursor = Cursors.Hand
             };
+        }
+
+        /// <summary>
+        /// White background, coloured border and text — used for secondary
+        /// actions like "Clear" (see the Login / Sign Up reference mockups).
+        /// </summary>
+        public static Button MakeOutlineButton(string text, Color accentColor, int width = 90, int height = 30)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                BackColor = Color.White,
+                ForeColor = accentColor,
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 9F, FontStyle.Bold),
+                Width = width,
+                Height = height,
+                Cursor = Cursors.Hand
+            };
+            btn.FlatAppearance.BorderColor = accentColor;
+            btn.FlatAppearance.BorderSize = 1;
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(245, 243, 250);
+            return btn;
         }
 
         public static void StyleGrid(DataGridView grid)

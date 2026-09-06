@@ -12,8 +12,10 @@ namespace Resortify.Forms
         private TextBox txtEmail;
         private TextBox txtPassword;
         private ComboBox cboRole;
+        private CheckBox chkShowPassword;
         private Label lblError;
         private Button btnLogin;
+        private Button btnClear;
         private LinkLabel lnkSignUp;
 
         public LoginForm()
@@ -24,7 +26,7 @@ namespace Resortify.Forms
         private void InitializeComponent()
         {
             Text = "Resortify - Login";
-            ClientSize = new Size(880, 560);
+            ClientSize = new Size(430, 500);
             AutoScroll = true;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
@@ -40,20 +42,40 @@ namespace Resortify.Forms
             var lblPassword = new Label { Text = "Password", Location = new Point(40, 168), AutoSize = true, Font = UIHelper.BaseFont };
             txtPassword = new TextBox { Location = new Point(40, 190), Width = 340, Font = UIHelper.BaseFont, UseSystemPasswordChar = true };
 
-            var lblRole = new Label { Text = "Login as", Location = new Point(40, 226), AutoSize = true, Font = UIHelper.BaseFont };
-            cboRole = new ComboBox { Location = new Point(40, 248), Width = 340, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.BaseFont };
+            chkShowPassword = new CheckBox { Text = "Show Password", Location = new Point(40, 220), AutoSize = true, Font = UIHelper.BaseFont };
+            chkShowPassword.CheckedChanged += (s, e) => txtPassword.UseSystemPasswordChar = !chkShowPassword.Checked;
+
+            var lblRole = new Label { Text = "Login as", Location = new Point(40, 254), AutoSize = true, Font = UIHelper.BaseFont };
+            cboRole = new ComboBox { Location = new Point(40, 276), Width = 340, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.BaseFont };
             cboRole.Items.AddRange(new object[] { "Customer", "Admin (Hotel Owner)", "Super Admin" });
             cboRole.SelectedIndex = 0;
 
             lblError = UIHelper.MakeErrorLabel();
-            lblError.Location = new Point(40, 282);
+            lblError.Location = new Point(40, 310);
             lblError.MaximumSize = new Size(340, 0);
 
-            btnLogin = UIHelper.MakeButton("Login", UIHelper.NavyHeader, 340, 36);
-            btnLogin.Location = new Point(40, 316);
+            btnLogin = UIHelper.MakeButton("Login", UIHelper.NavyHeader
+
+, 200, 38);
+            btnLogin.Location = new Point(40, 340);
             btnLogin.Click += BtnLogin_Click;
 
-            lnkSignUp = new LinkLabel { Text = "New here? Create a Customer or Hotel Owner account", AutoSize = true, Location = new Point(40, 366), Font = UIHelper.BaseFont };
+            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.NavyHeader
+
+, 140, 38);
+            btnClear.Location = new Point(250, 340);
+            btnClear.Click += (s, e) => ClearForm();
+
+            lnkSignUp = new LinkLabel
+            {
+                Text = "Don't Have an Account?  Create Account",
+                AutoSize = true,
+                Location = new Point(40, 392),
+                Font = UIHelper.BaseFont,
+                LinkColor = UIHelper.NavyHeader
+
+
+            };
             lnkSignUp.LinkClicked += (s, e) =>
             {
                 new SignUpForm().Show();
@@ -63,15 +85,29 @@ namespace Resortify.Forms
             var lblHint = new Label
             {
                 Text = "Quick login: super@gmail.com / admin@gmail.com  (password: 123456)",
-                Location = new Point(40, 396),
+                Location = new Point(40, 424),
                 AutoSize = true,
                 ForeColor = Color.Gray,
                 Font = new Font("Segoe UI", 7.5F, FontStyle.Italic)
             };
 
-            Controls.AddRange(new Control[] { lblEmail, txtEmail, lblPassword, txtPassword, lblRole, cboRole, lblError, btnLogin, lnkSignUp, lblHint });
+            Controls.AddRange(new Control[]
+            {
+                lblEmail, txtEmail, lblPassword, txtPassword, chkShowPassword,
+                lblRole, cboRole, lblError, btnLogin, btnClear, lnkSignUp, lblHint
+            });
 
             AcceptButton = btnLogin;
+        }
+
+        private void ClearForm()
+        {
+            txtEmail.Clear();
+            txtPassword.Clear();
+            chkShowPassword.Checked = false;
+            cboRole.SelectedIndex = 0;
+            lblError.Visible = false;
+            txtEmail.Focus();
         }
 
         private void BtnLogin_Click(object sender, EventArgs e)

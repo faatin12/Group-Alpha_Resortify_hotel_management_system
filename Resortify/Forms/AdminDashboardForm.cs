@@ -39,7 +39,7 @@ namespace Resortify.Forms
             var navPanel = new FlowLayoutPanel
             {
                 Location = new Point(24, 260),
-                Size = new Size(832, 480), // Increased height to accommodate the new status button
+                Size = new Size(832, 360),
                 FlowDirection = FlowDirection.LeftToRight
             };
 
