@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Drawing;
 using System.Windows.Forms;
 using Microsoft.Data.SqlClient;
@@ -7,32 +7,36 @@ using Resortify.Helpers;
 
 namespace Resortify.Forms
 {
-    public partial class SignUpForm : Form
+    /// <summary>
+    /// Lets a Super Admin create a Hotel Owner (Admin) account directly --
+    /// no public sign-up, no Pending approval step, since the Super Admin
+    /// is vouching for the account by creating it themselves. This is the
+    /// only place outside the (now Customer-only) SignUpForm that inserts
+    /// a new row into Users.
+    /// </summary>
+    public partial class AddStaffForm : Form
     {
-        private TextBox txtName, txtPhone, txtEmail, txtAddress, txtPassword, txtConfirm;
+        private TextBox txtName, txtEmail, txtPhone, txtAddress, txtPassword, txtConfirm;
         private CheckBox chkShowPassword;
         private Label lblError;
-        private Button btnRegister;
+        private Button btnCreate;
         private Button btnClear;
-        private LinkLabel lnkBackToLogin;
 
-        public SignUpForm()
+        public AddStaffForm()
         {
             InitializeComponent();
         }
 
         private void InitializeComponent()
         {
-            Text = "Resortify - Sign Up";
-            ClientSize = new Size(460, 560);
+            Text = "Resortify - Add New Staff";
+            ClientSize = new Size(880, 560);
             AutoScroll = true;
             StartPosition = FormStartPosition.CenterScreen;
-            FormBorderStyle = FormBorderStyle.FixedSingle;
-            MaximizeBox = false;
             BackColor = Color.White;
 
-            Controls.Add(UIHelper.BuildHeader("Create Account", UIHelper.NavyHeader,
-                onBack: (s, e) => { new LoginForm().Show(); Close(); }, onLogout: null));
+            Controls.Add(UIHelper.BuildHeader("Add New Staff (Hotel Owner)", UIHelper.SuperAdmin,
+                onBack: (s, e) => Close(), onLogout: null));
 
             int y = 100;
             (Label, TextBox) Field(string label)
@@ -43,9 +47,19 @@ namespace Resortify.Forms
                 return (l, t);
             }
 
+            var lblRoleNote = new Label
+            {
+                Text = "This form creates an Admin / Hotel Owner account only.\nCustomers sign up for themselves from the Login screen.",
+                Location = new Point(40, y),
+                AutoSize = true,
+                Font = new Font("Segoe UI", 8.5F, FontStyle.Italic),
+                ForeColor = Color.Gray
+            };
+            y += 44;
+
             var (l1, t1) = Field("Full Name"); txtName = t1;
-            var (l2, t2) = Field("Phone"); txtPhone = t2;
-            var (l3, t3) = Field("Email"); txtEmail = t3;
+            var (l2, t2) = Field("Username / Email"); txtEmail = t2;
+            var (l3, t3) = Field("Phone"); txtPhone = t3;
             var (l4, t4) = Field("Address"); txtAddress = t4;
             var (l5, t5) = Field("Password"); txtPassword = t5; txtPassword.UseSystemPasswordChar = true;
             var (l6, t6) = Field("Confirm Password"); txtConfirm = t6; txtConfirm.UseSystemPasswordChar = true;
@@ -64,39 +78,28 @@ namespace Resortify.Forms
             lblError.MaximumSize = new Size(380, 0);
             y += 16;
 
-            btnRegister = UIHelper.MakeButton("Create Account", UIHelper.NavyHeader, 240, 38);
-            btnRegister.Location = new Point(40, y);
-            btnRegister.Click += BtnRegister_Click;
+            btnCreate = UIHelper.MakeButton("Create Staff Account", UIHelper.SuperAdmin, 240, 38);
+            btnCreate.Location = new Point(40, y);
+            btnCreate.Click += BtnCreate_Click;
 
-            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.NavyHeader, 130, 38);
+            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.SuperAdmin, 130, 38);
             btnClear.Location = new Point(290, y);
             btnClear.Click += (s, e) => ClearForm();
-            y += 50;
-
-            lnkBackToLogin = new LinkLabel
-            {
-                Text = "Already Have an Account?  Back to LOGIN",
-                AutoSize = true,
-                Location = new Point(40, y),
-                Font = UIHelper.BaseFont,
-                LinkColor = UIHelper.AccentPurple
-            };
-            lnkBackToLogin.LinkClicked += (s, e) => { new LoginForm().Show(); Close(); };
 
             Controls.AddRange(new Control[]
             {
-                l1, t1, l2, t2, l3, t3, l4, t4, l5, t5, l6, t6,
-                chkShowPassword, lblError, btnRegister, btnClear, lnkBackToLogin
+                lblRoleNote, l1, t1, l2, t2, l3, t3, l4, t4, l5, t5, l6, t6,
+                chkShowPassword, lblError, btnCreate, btnClear
             });
 
-            AcceptButton = btnRegister;
+            AcceptButton = btnCreate;
         }
 
         private void ClearForm()
         {
             txtName.Clear();
-            txtPhone.Clear();
             txtEmail.Clear();
+            txtPhone.Clear();
             txtAddress.Clear();
             txtPassword.Clear();
             txtConfirm.Clear();
@@ -105,20 +108,20 @@ namespace Resortify.Forms
             txtName.Focus();
         }
 
-        private void BtnRegister_Click(object sender, EventArgs e)
+        private void BtnCreate_Click(object sender, EventArgs e)
         {
             lblError.Visible = false;
 
             string name = txtName.Text.Trim();
-            string phone = txtPhone.Text.Trim();
             string email = txtEmail.Text.Trim();
+            string phone = txtPhone.Text.Trim();
             string address = txtAddress.Text.Trim();
             string password = txtPassword.Text;
             string confirm = txtConfirm.Text;
 
-            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(address))
+            if (string.IsNullOrWhiteSpace(name) || string.IsNullOrWhiteSpace(email))
             {
-                ShowError("Full name, email and address are required.");
+                ShowError("Full name and username/email are required.");
                 return;
             }
             if (password.Length < 6)
@@ -136,29 +139,29 @@ namespace Resortify.Forms
                 "SELECT COUNT(*) FROM Users WHERE Email = @Email", new SqlParameter("@Email", email));
             if (Convert.ToInt32(existing) > 0)
             {
-                ShowError("An account with this email already exists.");
+                ShowError("An account with this username/email already exists.");
                 return;
             }
 
-            // This public form only ever creates Customer accounts now.
-            // Admin / Hotel Owner accounts are created by a Super Admin from
-            // the "Add New Staff" screen instead (see AddStaffForm).
             string hash = PasswordHelper.HashPassword(password);
 
+            // Created by a Super Admin, so it goes straight in as Approved --
+            // no Pending review step, unlike the public sign-up flow.
             DbHelper.ExecuteNonQuery(
                 @"INSERT INTO Users (FullName, Email, Password, Phone, Address, UserType, Status)
-                  VALUES (@Name, @Email, @Pwd, @Phone, @Address, 'Customer', 'Approved')",
+                  VALUES (@Name, @Email, @Pwd, @Phone, @Address, 'Admin', 'Approved')",
                 new SqlParameter("@Name", name),
                 new SqlParameter("@Email", email),
                 new SqlParameter("@Pwd", hash),
                 new SqlParameter("@Phone", (object)phone ?? DBNull.Value),
-                new SqlParameter("@Address", address));
+                new SqlParameter("@Address", (object)address ?? DBNull.Value));
 
-            MessageBox.Show("Account created! You can now log in.", "Welcome to Resortify",
-                MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show(
+                $"Staff account created.\n\nUsername: {email}\nThey can log in as Admin (Hotel Owner) right away " +
+                "and will be prompted to register their hotel on first login.",
+                "Resortify", MessageBoxButtons.OK, MessageBoxIcon.Information);
 
-            new LoginForm().Show();
-            Close();
+            ClearForm();
         }
 
         private void ShowError(string message)

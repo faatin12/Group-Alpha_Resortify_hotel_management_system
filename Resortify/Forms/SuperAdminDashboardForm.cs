@@ -41,10 +41,11 @@ namespace Resortify.Forms
             var navPanel = new FlowLayoutPanel
             {
                 Location = new Point(24, 274),
-                Size = new Size(832, 240),
+                Size = new Size(832, 360),
                 FlowDirection = FlowDirection.LeftToRight
             };
 
+            AddNav(navPanel, "Add New Staff", () => new AddStaffForm());
             AddNav(navPanel, "Manage Hotel Owners", () => new ManageHotelOwnersForm());
             AddNav(navPanel, "View All Users", () => new ViewAllUsersForm());
             AddNav(navPanel, "Platform Sales &&\nCommission Report", () => new PlatformSalesReportForm());
