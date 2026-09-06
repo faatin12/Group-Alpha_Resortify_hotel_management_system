@@ -10,9 +10,11 @@ namespace Resortify.Forms
     public partial class SignUpForm : Form
     {
         private TextBox txtName, txtPhone, txtEmail, txtAddress, txtPassword, txtConfirm;
-        private ComboBox cboRegisterAs;
+        private CheckBox chkShowPassword;
         private Label lblError;
         private Button btnRegister;
+        private Button btnClear;
+        private LinkLabel lnkBackToLogin;
 
         public SignUpForm()
         {
@@ -37,7 +39,7 @@ namespace Resortify.Forms
             {
                 var l = new Label { Text = label, Location = new Point(40, y), AutoSize = true, Font = UIHelper.BaseFont };
                 var t = new TextBox { Location = new Point(40, y + 22), Width = 380, Font = UIHelper.BaseFont };
-                y += 58;
+                y += 56;
                 return (l, t);
             }
 
@@ -48,28 +50,59 @@ namespace Resortify.Forms
             var (l5, t5) = Field("Password"); txtPassword = t5; txtPassword.UseSystemPasswordChar = true;
             var (l6, t6) = Field("Confirm Password"); txtConfirm = t6; txtConfirm.UseSystemPasswordChar = true;
 
-            var lblRole = new Label { Text = "Register As", Location = new Point(40, y), AutoSize = true, Font = UIHelper.BaseFont };
-            cboRegisterAs = new ComboBox { Location = new Point(40, y + 22), Width = 380, DropDownStyle = ComboBoxStyle.DropDownList, Font = UIHelper.BaseFont };
-            cboRegisterAs.Items.AddRange(new object[] { "Customer", "Hotel Owner" });
-            cboRegisterAs.SelectedIndex = 0;
-            y += 58;
+            chkShowPassword = new CheckBox { Text = "Show Password", Location = new Point(40, y), AutoSize = true, Font = UIHelper.BaseFont };
+            chkShowPassword.CheckedChanged += (s, e) =>
+            {
+                bool reveal = chkShowPassword.Checked;
+                txtPassword.UseSystemPasswordChar = !reveal;
+                txtConfirm.UseSystemPasswordChar = !reveal;
+            };
+            y += 32;
 
             lblError = UIHelper.MakeErrorLabel();
             lblError.Location = new Point(40, y);
             lblError.MaximumSize = new Size(380, 0);
-            y += 30;
+            y += 26;
 
-            btnRegister = UIHelper.MakeButton("Create Account", UIHelper.NavyHeader, 380, 38);
+            btnRegister = UIHelper.MakeButton("Create Account", UIHelper.AccentPurple, 240, 38);
             btnRegister.Location = new Point(40, y);
             btnRegister.Click += BtnRegister_Click;
+
+            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.AccentPurple, 130, 38);
+            btnClear.Location = new Point(290, y);
+            btnClear.Click += (s, e) => ClearForm();
+            y += 50;
+
+            lnkBackToLogin = new LinkLabel
+            {
+                Text = "Already Have an Account?  Back to LOGIN",
+                AutoSize = true,
+                Location = new Point(40, y),
+                Font = UIHelper.BaseFont,
+                LinkColor = UIHelper.AccentPurple
+            };
+            lnkBackToLogin.LinkClicked += (s, e) => { new LoginForm().Show(); Close(); };
 
             Controls.AddRange(new Control[]
             {
                 l1, t1, l2, t2, l3, t3, l4, t4, l5, t5, l6, t6,
-                lblRole, cboRegisterAs, lblError, btnRegister
+                chkShowPassword, lblError, btnRegister, btnClear, lnkBackToLogin
             });
 
             AcceptButton = btnRegister;
+        }
+
+        private void ClearForm()
+        {
+            txtName.Clear();
+            txtPhone.Clear();
+            txtEmail.Clear();
+            txtAddress.Clear();
+            txtPassword.Clear();
+            txtConfirm.Clear();
+            chkShowPassword.Checked = false;
+            lblError.Visible = false;
+            txtName.Focus();
         }
 
         private void BtnRegister_Click(object sender, EventArgs e)
@@ -107,27 +140,22 @@ namespace Resortify.Forms
                 return;
             }
 
-            string userType = cboRegisterAs.SelectedIndex == 0 ? "Customer" : "Admin";
-            // Customers can use the platform immediately; Hotel Owners need Super Admin
-            // approval before they can log in and list rooms (Chapter 2 user story).
-            string status = userType == "Customer" ? "Approved" : "Pending";
+            // This public form only ever creates Customer accounts now.
+            // Admin / Hotel Owner accounts are created by a Super Admin from
+            // the "Add New Staff" screen instead (see AddStaffForm).
             string hash = PasswordHelper.HashPassword(password);
 
             DbHelper.ExecuteNonQuery(
                 @"INSERT INTO Users (FullName, Email, Password, Phone, Address, UserType, Status)
-                  VALUES (@Name, @Email, @Pwd, @Phone, @Address, @Type, @Status)",
+                  VALUES (@Name, @Email, @Pwd, @Phone, @Address, 'Customer', 'Approved')",
                 new SqlParameter("@Name", name),
                 new SqlParameter("@Email", email),
                 new SqlParameter("@Pwd", hash),
                 new SqlParameter("@Phone", (object)phone ?? DBNull.Value),
-                new SqlParameter("@Address", address),
-                new SqlParameter("@Type", userType),
-                new SqlParameter("@Status", status));
+                new SqlParameter("@Address", address));
 
-            string message = userType == "Customer"
-                ? "Account created! You can now log in."
-                : "Account created! A Super Admin must approve your hotel-owner account before you can log in.";
-            MessageBox.Show(message, "Welcome to Resortify", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Account created! You can now log in.", "Welcome to Resortify",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
 
             new LoginForm().Show();
             Close();
