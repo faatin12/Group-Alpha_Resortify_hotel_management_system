@@ -26,7 +26,7 @@ namespace Resortify.Forms
         private void InitializeComponent()
         {
             Text = "Resortify - Login";
-            ClientSize = new Size(880, 560);
+            ClientSize = new Size(430, 500);
             AutoScroll = true;
             StartPosition = FormStartPosition.CenterScreen;
             FormBorderStyle = FormBorderStyle.FixedSingle;
