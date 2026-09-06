@@ -64,11 +64,11 @@ namespace Resortify.Forms
             lblError.MaximumSize = new Size(380, 0);
             y += 26;
 
-            btnRegister = UIHelper.MakeButton("Create Account", UIHelper.AccentPurple, 240, 38);
+            btnRegister = UIHelper.MakeButton("Create Account", UIHelper.NavyHeader, 240, 38);
             btnRegister.Location = new Point(40, y);
             btnRegister.Click += BtnRegister_Click;
 
-            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.AccentPurple, 130, 38);
+            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.NavyHeader, 130, 38);
             btnClear.Location = new Point(290, y);
             btnClear.Click += (s, e) => ClearForm();
             y += 50;
