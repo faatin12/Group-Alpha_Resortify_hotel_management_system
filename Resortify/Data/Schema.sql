@@ -55,6 +55,9 @@ CREATE TABLE Hotels (
 );
 GO
 
+-- Rooms: RoomSize / BedType / MaxGuests / Amenities are read by
+-- HotelDetailsForm.cs and CustomerHomeForm.cs (via ISNULL(...) so
+-- NULL is fine and falls back to a friendly default in the UI).
 CREATE TABLE Rooms (
     RoomId          INT IDENTITY(1,1) PRIMARY KEY,
     HotelId         INT NOT NULL FOREIGN KEY REFERENCES Hotels(HotelId),
@@ -62,34 +65,95 @@ CREATE TABLE Rooms (
     PricePerNight   DECIMAL(10,2) NOT NULL CHECK (PricePerNight > 0),
     TotalRooms      INT           NOT NULL CHECK (TotalRooms >= 0),
     MinAvailability INT           NOT NULL DEFAULT 1,
+    RoomSize        VARCHAR(50)   NULL,
+    BedType         VARCHAR(50)   NULL,
+    MaxGuests       INT           NULL,
+    Amenities       VARCHAR(500)  NULL,
     Description     VARCHAR(500)  NULL,
     ImagePath       VARCHAR(255)  NULL
 );
 GO
 
+-- Cart: Guests / DiscountAmount are written by HotelDetailsForm.cs's
+-- "Add Booking to Cart" insert and read back by BookingCartForm.cs.
 CREATE TABLE Cart (
-    CartId       INT IDENTITY(1,1) PRIMARY KEY,
-    CustomerId   INT  NOT NULL FOREIGN KEY REFERENCES Users(UserId),
-    RoomId       INT  NOT NULL FOREIGN KEY REFERENCES Rooms(RoomId),
-    CheckInDate  DATE NOT NULL,
-    CheckOutDate DATE NOT NULL,
-    Quantity     INT  NOT NULL DEFAULT 1 CHECK (Quantity > 0),
-    AddedDate    DATETIME NOT NULL DEFAULT GETDATE(),
+    CartId         INT IDENTITY(1,1) PRIMARY KEY,
+    CustomerId     INT  NOT NULL FOREIGN KEY REFERENCES Users(UserId),
+    RoomId         INT  NOT NULL FOREIGN KEY REFERENCES Rooms(RoomId),
+    CheckInDate    DATE NOT NULL,
+    CheckOutDate   DATE NOT NULL,
+    Quantity       INT  NOT NULL DEFAULT 1 CHECK (Quantity > 0),
+    Guests         INT  NOT NULL DEFAULT 1,
+    DiscountAmount DECIMAL(10,2) NOT NULL DEFAULT 0,
+    AddedDate      DATETIME NOT NULL DEFAULT GETDATE(),
     CONSTRAINT CK_Cart_Dates CHECK (CheckOutDate > CheckInDate)
 );
 GO
 
-CREATE TABLE Bookings (
-    BookingId     INT IDENTITY(1,1) PRIMARY KEY,
-    CustomerId    INT NOT NULL FOREIGN KEY REFERENCES Users(UserId),
-    BookingDate   DATETIME NOT NULL DEFAULT GETDATE(),
-    TotalAmount   DECIMAL(10,2) NOT NULL CHECK (TotalAmount >= 0),
-    PaymentMethod VARCHAR(30) NOT NULL,
-    Status        VARCHAR(20) NOT NULL DEFAULT 'Confirmed'
-                              CHECK (Status IN ('Confirmed','Cancelled','Completed'))
+-- ServiceCatalog: master list of add-on services offered at checkout
+-- (HotelDetailsForm.cs "Stay Extras & Guest Services" checklist).
+CREATE TABLE ServiceCatalog (
+    ServiceId   INT IDENTITY(1,1) PRIMARY KEY,
+    ServiceName VARCHAR(100)  NOT NULL,
+    Price       DECIMAL(10,2) NOT NULL DEFAULT 0,
+    IsFree      BIT           NOT NULL DEFAULT 0,
+    Active      BIT           NOT NULL DEFAULT 1
 );
 GO
 
+-- CartServices: services a customer attached to one cart line item.
+CREATE TABLE CartServices (
+    CartServiceId INT IDENTITY(1,1) PRIMARY KEY,
+    CartId        INT NOT NULL FOREIGN KEY REFERENCES Cart(CartId),
+    ServiceId     INT NOT NULL FOREIGN KEY REFERENCES ServiceCatalog(ServiceId),
+    Quantity      INT NOT NULL DEFAULT 1 CHECK (Quantity > 0),
+    UnitPrice     DECIMAL(10,2) NOT NULL
+);
+GO
+
+-- Coupons: master coupon codes, checked/applied in CheckoutForm.cs.
+CREATE TABLE Coupons (
+    CouponId              INT IDENTITY(1,1) PRIMARY KEY,
+    Code                  VARCHAR(30)   NOT NULL UNIQUE,
+    DiscountPercent       DECIMAL(5,2)  NOT NULL CHECK (DiscountPercent BETWEEN 1 AND 100),
+    MaxDiscountAmount     DECIMAL(10,2) NULL,
+    MinimumBookingAmount  DECIMAL(10,2) NOT NULL DEFAULT 0,
+    ValidFrom             DATE          NOT NULL,
+    ValidTo               DATE          NOT NULL,
+    MaxUses               INT           NULL,
+    UsedCount             INT           NOT NULL DEFAULT 0,
+    Active                BIT           NOT NULL DEFAULT 1,
+    CONSTRAINT CK_Coupons_Dates CHECK (ValidTo > ValidFrom)
+);
+GO
+
+-- CartCoupons: at most one applied coupon per customer's active cart
+-- (CheckoutForm.cs MERGEs into this by CustomerId).
+CREATE TABLE CartCoupons (
+    CustomerId     INT NOT NULL PRIMARY KEY FOREIGN KEY REFERENCES Users(UserId),
+    CouponId       INT NOT NULL FOREIGN KEY REFERENCES Coupons(CouponId),
+    CouponCode     VARCHAR(30) NOT NULL,
+    DiscountAmount DECIMAL(10,2) NOT NULL,
+    AppliedAt      DATETIME NOT NULL DEFAULT GETDATE()
+);
+GO
+
+-- Bookings: CustomerNotificationShown flags a one-time "your booking
+-- status changed" popup shown on the Customer Dashboard.
+CREATE TABLE Bookings (
+    BookingId                 INT IDENTITY(1,1) PRIMARY KEY,
+    CustomerId                INT NOT NULL FOREIGN KEY REFERENCES Users(UserId),
+    BookingDate               DATETIME NOT NULL DEFAULT GETDATE(),
+    TotalAmount               DECIMAL(10,2) NOT NULL CHECK (TotalAmount >= 0),
+    PaymentMethod             VARCHAR(30) NOT NULL,
+    Status                    VARCHAR(20) NOT NULL DEFAULT 'Confirmed'
+                                          CHECK (Status IN ('Confirmed','Cancelled','Completed')),
+    CustomerNotificationShown BIT NOT NULL DEFAULT 0
+);
+GO
+
+-- BookingItems: Quantity (rooms booked) / Guests are used throughout
+-- CheckoutForm.cs, BookingHistoryForm.cs and HotelDetailsForm.cs.
 CREATE TABLE BookingItems (
     BookingItemId INT IDENTITY(1,1) PRIMARY KEY,
     BookingId     INT NOT NULL FOREIGN KEY REFERENCES Bookings(BookingId),
@@ -97,8 +161,21 @@ CREATE TABLE BookingItems (
     CheckInDate   DATE NOT NULL,
     CheckOutDate  DATE NOT NULL,
     Nights        INT NOT NULL CHECK (Nights > 0),
+    Quantity      INT NOT NULL DEFAULT 1 CHECK (Quantity > 0),
+    Guests        INT NOT NULL DEFAULT 1,
     UnitPrice     DECIMAL(10,2) NOT NULL,
     Subtotal      DECIMAL(10,2) NOT NULL
+);
+GO
+
+-- BookingItemServices: services copied over from CartServices at
+-- checkout time, tied to the finalised booking line (CheckoutForm.cs).
+CREATE TABLE BookingItemServices (
+    BookingItemServiceId INT IDENTITY(1,1) PRIMARY KEY,
+    BookingItemId         INT NOT NULL FOREIGN KEY REFERENCES BookingItems(BookingItemId),
+    ServiceId             INT NOT NULL FOREIGN KEY REFERENCES ServiceCatalog(ServiceId),
+    Quantity              INT NOT NULL DEFAULT 1 CHECK (Quantity > 0),
+    UnitPrice             DECIMAL(10,2) NOT NULL
 );
 GO
 
@@ -119,6 +196,21 @@ CREATE TABLE Offers (
     StartDate        DATE NOT NULL,
     EndDate          DATE NOT NULL,
     CONSTRAINT CK_Offers_Dates CHECK (EndDate > StartDate)
+);
+GO
+
+-- Staff: per-hotel housekeeping / maintenance / front-desk roster,
+-- managed from StaffManagementForm.cs / StaffDialog.cs (Admin role).
+CREATE TABLE Staff (
+    StaffId    INT IDENTITY(1,1) PRIMARY KEY,
+    HotelId    INT NOT NULL FOREIGN KEY REFERENCES Hotels(HotelId),
+    FullName   VARCHAR(100) NOT NULL,
+    Role       VARCHAR(50)  NOT NULL,
+    Phone      VARCHAR(20)  NULL,
+    Shift      VARCHAR(30)  NOT NULL,
+    Status     VARCHAR(20)  NOT NULL DEFAULT 'Active'
+                            CHECK (Status IN ('Active','Inactive')),
+    HiredDate  DATETIME     NOT NULL DEFAULT GETDATE()
 );
 GO
 
@@ -157,11 +249,24 @@ INSERT INTO Hotels (OwnerId, HotelName, Category, City, Address, Phone, StarRati
 ((SELECT UserId FROM Users WHERE Email = 'admin@gmail.com'), 'Emerald Hills Retreat', 'Hotel', 'Dhaka', 'Gulshan Avenue, Dhaka', '01810000003', 4.5, 'Approved');
 GO
 
-INSERT INTO Rooms (HotelId, RoomType, PricePerNight, TotalRooms, MinAvailability, Description) VALUES
-(1, 'Deluxe Sea View', 120.00, 10, 2, 'Beachfront room with private balcony'),
-(1, 'Family Suite', 180.00, 6, 1, 'Two-bedroom suite for up to 5 guests'),
-(2, 'Standard Twin', 70.00, 20, 4, 'Twin bed room with city view'),
-((SELECT HotelId FROM Hotels WHERE HotelName = 'Emerald Hills Retreat'), 'Standard Room', 90.00, 12, 2, 'Comfortable city-view room for the demo Admin account');
+INSERT INTO Rooms (HotelId, RoomType, PricePerNight, TotalRooms, MinAvailability, RoomSize, BedType, MaxGuests, Amenities, Description) VALUES
+(1, 'Deluxe Sea View', 120.00, 10, 2, '32 sqm', 'King', 2, 'Free WiFi, Sea view balcony, Air conditioning', 'Beachfront room with private balcony'),
+(1, 'Family Suite', 180.00, 6, 1, '55 sqm', 'Two Queen', 5, 'Free WiFi, Kitchenette, Two bathrooms', 'Two-bedroom suite for up to 5 guests'),
+(2, 'Standard Twin', 70.00, 20, 4, '24 sqm', 'Twin', 2, 'Free WiFi, Air conditioning', 'Twin bed room with city view'),
+((SELECT HotelId FROM Hotels WHERE HotelName = 'Emerald Hills Retreat'), 'Standard Room', 90.00, 12, 2, '26 sqm', 'Queen', 2, 'Free WiFi, Air conditioning, Work desk', 'Comfortable city-view room for the demo Admin account');
+GO
+
+INSERT INTO ServiceCatalog (ServiceName, Price, IsFree, Active) VALUES
+('WiFi', 0.00, 1, 1),
+('Airport Pickup', 25.00, 0, 1),
+('Breakfast Buffet', 15.00, 0, 1),
+('Spa Access', 40.00, 0, 1),
+('Late Checkout', 20.00, 0, 1);
+GO
+
+INSERT INTO Coupons (Code, DiscountPercent, MaxDiscountAmount, MinimumBookingAmount, ValidFrom, ValidTo, MaxUses, UsedCount, Active) VALUES
+('WELCOME10', 10.00, 50.00, 50.00, '2026-01-01', '2026-12-31', 500, 0, 1),
+('SUMMER25', 25.00, 100.00, 100.00, '2026-06-01', '2026-09-30', 200, 0, 1);
 GO
 
 INSERT INTO Bookings (CustomerId, TotalAmount, PaymentMethod, Status) VALUES
@@ -170,10 +275,10 @@ INSERT INTO Bookings (CustomerId, TotalAmount, PaymentMethod, Status) VALUES
 (6, 360.00, 'Credit Card', 'Completed');
 GO
 
-INSERT INTO BookingItems (BookingId, RoomId, CheckInDate, CheckOutDate, Nights, UnitPrice, Subtotal) VALUES
-(1, 1, '2026-08-20', '2026-08-23', 3, 120.00, 360.00),
-(2, 3, '2026-09-01', '2026-09-03', 2, 70.00, 280.00),
-(3, 2, '2026-07-10', '2026-07-12', 2, 180.00, 360.00);
+INSERT INTO BookingItems (BookingId, RoomId, CheckInDate, CheckOutDate, Nights, Quantity, Guests, UnitPrice, Subtotal) VALUES
+(1, 1, '2026-08-20', '2026-08-23', 3, 1, 2, 120.00, 360.00),
+(2, 3, '2026-09-01', '2026-09-03', 2, 2, 3, 70.00, 280.00),
+(3, 2, '2026-07-10', '2026-07-12', 2, 1, 4, 180.00, 360.00);
 GO
 
 INSERT INTO Reviews (CustomerId, HotelId, Rating, Comment) VALUES
@@ -185,6 +290,12 @@ GO
 INSERT INTO Offers (RoomId, DiscountPercent, StartDate, EndDate) VALUES
 (1, 15.00, '2026-09-01', '2026-09-30'),
 (3, 10.00, '2026-08-25', '2026-09-15');
+GO
+
+INSERT INTO Staff (HotelId, FullName, Role, Phone, Shift, Status) VALUES
+(1, 'Jamal Hossain', 'Housekeeping', '01910000001', 'Morning', 'Active'),
+(1, 'Farida Begum', 'Front Desk', '01910000002', 'Evening', 'Active'),
+(2, 'Milon Khan', 'Maintenance', '01910000003', 'Morning', 'Active');
 GO
 
 -- =========================================================
