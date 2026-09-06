@@ -71,12 +71,12 @@ namespace Resortify.Forms
                 txtPassword.UseSystemPasswordChar = !reveal;
                 txtConfirm.UseSystemPasswordChar = !reveal;
             };
-            y += 32;
+            y += 30;
 
             lblError = UIHelper.MakeErrorLabel();
             lblError.Location = new Point(40, y);
             lblError.MaximumSize = new Size(380, 0);
-            y += 26;
+            y += 16;
 
             btnCreate = UIHelper.MakeButton("Create Staff Account", UIHelper.SuperAdmin, 240, 38);
             btnCreate.Location = new Point(40, y);

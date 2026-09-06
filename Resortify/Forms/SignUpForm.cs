@@ -57,18 +57,18 @@ namespace Resortify.Forms
                 txtPassword.UseSystemPasswordChar = !reveal;
                 txtConfirm.UseSystemPasswordChar = !reveal;
             };
-            y += 32;
+            y += 30;
 
             lblError = UIHelper.MakeErrorLabel();
             lblError.Location = new Point(40, y);
             lblError.MaximumSize = new Size(380, 0);
-            y += 26;
+            y += 16;
 
-            btnRegister = UIHelper.MakeButton("Create Account", UIHelper.NavyHeader, 240, 38);
+            btnRegister = UIHelper.MakeButton("Create Account", UIHelper.AccentPurple, 240, 38);
             btnRegister.Location = new Point(40, y);
             btnRegister.Click += BtnRegister_Click;
 
-            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.NavyHeader, 130, 38);
+            btnClear = UIHelper.MakeOutlineButton("Clear", UIHelper.AccentPurple, 130, 38);
             btnClear.Location = new Point(290, y);
             btnClear.Click += (s, e) => ClearForm();
             y += 50;
