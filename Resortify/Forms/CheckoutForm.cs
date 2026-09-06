@@ -100,7 +100,7 @@ namespace Resortify.Forms
             root.Name = "root";
             root.Padding = new Padding(24, 102, 24, 20);
             root.RowCount = 1;
-            root.RowStyles.Add(new RowStyle(SizeType.Absolute, 20F));
+            root.RowStyles.Add(new RowStyle(SizeType.Percent, 100F));
             root.Size = new Size(1120, 720);
             root.TabIndex = 0;
             // 
@@ -232,6 +232,34 @@ namespace Resortify.Forms
             paymentInfo.Size = new Size(422, 58);
             paymentInfo.TabIndex = 4;
             paymentInfo.Text = "Pay at Hotel confirms immediately. Online payments require a transaction ID and stay pending until the hotel validates it.";
+            //
+            // coupon and totals panels
+            //
+            TableLayoutPanel couponPanel = CreateCouponPanel();
+            TableLayoutPanel totalsPanel = CreateTotalsPanel();
+
+            paymentPanel.Controls.Add(couponPanel, 0, 5);
+            paymentPanel.Controls.Add(totalsPanel, 0, 6);
+
+            errorLabel = new Label();
+            errorLabel.Dock = DockStyle.Fill;
+            errorLabel.ForeColor = Color.Firebrick;
+            errorLabel.TextAlign = ContentAlignment.MiddleLeft;
+            errorLabel.Visible = false;
+            errorLabel.Name = "errorLabel";
+            paymentPanel.Controls.Add(errorLabel, 0, 7);
+
+            confirmButton = UIHelper.MakeButton(
+                "Confirm Booking",
+                UIHelper.CustomerColor,
+                180,
+                38);
+            confirmButton.Dock = DockStyle.Fill;
+            confirmButton.Click += ConfirmBooking_Click;
+            paymentPanel.Controls.Add(confirmButton, 0, 8);
+
+            paymentBox.SelectedIndex = 0;
+            UpdatePaymentFields();
             // 
             // invoicePanel
             // 
@@ -487,7 +515,10 @@ namespace Resortify.Forms
 
             if (cartLines.Count == 0)
             {
-                couponStatusLabel.Text = "Enter a coupon code if you have one.";
+                if (couponStatusLabel != null)
+                {
+                    couponStatusLabel.Text = "Enter a coupon code if you have one.";
+                }
                 return;
             }
 
@@ -501,17 +532,26 @@ namespace Resortify.Forms
                 couponDiscount = Convert.ToDecimal(table.Rows[0]["DiscountAmount"]);
                 couponText.Text = appliedCouponCode;
 
-                couponStatusLabel.Text = "Coupon " +
-                    appliedCouponCode + " applied: -$" +
-                    couponDiscount.ToString("N2");
-                couponStatusLabel.ForeColor = UIHelper.CustomerColor;
+                if (couponStatusLabel != null)
+                {
+                    couponStatusLabel.Text = "Coupon " +
+                        appliedCouponCode + " applied: -$" +
+                        couponDiscount.ToString("N2");
+                    couponStatusLabel.ForeColor = UIHelper.CustomerColor;
+                }
             }
+
             else
             {
-                couponStatusLabel.Text =
-                    "Have a coupon? Try WELCOME10, RESORT15 or GETAWAY20.";
+                if (couponStatusLabel != null)
+                {
+                    couponStatusLabel.Text =
+                        "Have a coupon? Try WELCOME10, RESORT15 or GETAWAY20.";
+                    couponStatusLabel.ForeColor = Color.DimGray;
+                }
             }
         }
+
 
         private decimal GetRoomTotal()
         {
@@ -704,10 +744,13 @@ namespace Resortify.Forms
             appliedCouponCode = row["Code"].ToString();
             couponDiscount = discount;
 
-            couponStatusLabel.Text = "Coupon " +
-                appliedCouponCode + " applied: -$" +
-                discount.ToString("N2");
-            couponStatusLabel.ForeColor = UIHelper.CustomerColor;
+            if (couponStatusLabel != null)
+            {
+                couponStatusLabel.Text = "Coupon " +
+                    appliedCouponCode + " applied: -$" +
+                    discount.ToString("N2");
+                couponStatusLabel.ForeColor = UIHelper.CustomerColor;
+            }
 
             RecalculateTotals();
         }
@@ -726,8 +769,11 @@ namespace Resortify.Forms
             appliedCouponCode = "";
             couponDiscount = 0;
             couponText.Clear();
-            couponStatusLabel.Text = "No coupon applied.";
-            couponStatusLabel.ForeColor = Color.DimGray;
+            if (couponStatusLabel != null)
+            {
+                couponStatusLabel.Text = "No coupon applied.";
+                couponStatusLabel.ForeColor = Color.DimGray;
+            }
 
             RecalculateTotals();
 
@@ -1324,6 +1370,12 @@ namespace Resortify.Forms
 
         private void ShowError(string message)
         {
+            if (errorLabel == null)
+            {
+                MessageBox.Show(message, "Checkout", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
             errorLabel.Text = message;
             errorLabel.Visible = true;
         }

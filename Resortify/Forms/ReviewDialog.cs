@@ -1,4 +1,5 @@
 using System;
+using System.Data;
 using System.Drawing;
 using System.Windows.Forms;
 using Microsoft.Data.SqlClient;
@@ -51,9 +52,45 @@ namespace Resortify.Forms
 
         private void BtnSubmit_Click(object sender, EventArgs e)
         {
+            lblError.Visible = false;
+
             if (txtComment.Text.Trim().Length == 0)
             {
                 lblError.Text = "Please add a short comment.";
+                lblError.Visible = true;
+                return;
+            }
+
+            // A customer can review a hotel only after completing a booking there.
+            DataTable completedBooking = DbHelper.GetDataTable(
+                @"SELECT TOP 1 b.BookingId
+                  FROM Bookings b
+                  JOIN BookingItems bi ON bi.BookingId = b.BookingId
+                  JOIN Rooms r ON r.RoomId = bi.RoomId
+                  WHERE b.CustomerId = @Cust
+                    AND r.HotelId = @Hotel
+                    AND b.Status = 'Completed'",
+                new SqlParameter("@Cust", Session.UserId),
+                new SqlParameter("@Hotel", hotelId));
+
+            if (completedBooking.Rows.Count == 0)
+            {
+                lblError.Text = "You can review this hotel after completing a stay.";
+                lblError.Visible = true;
+                return;
+            }
+
+            // Keep the current Reviews table simple: one review per customer per hotel.
+            DataTable existing = DbHelper.GetDataTable(
+                @"SELECT TOP 1 ReviewId
+                  FROM Reviews
+                  WHERE CustomerId = @Cust AND HotelId = @Hotel",
+                new SqlParameter("@Cust", Session.UserId),
+                new SqlParameter("@Hotel", hotelId));
+
+            if (existing.Rows.Count > 0)
+            {
+                lblError.Text = "You have already reviewed this hotel.";
                 lblError.Visible = true;
                 return;
             }
@@ -65,7 +102,8 @@ namespace Resortify.Forms
                 new SqlParameter("@Rating", numRating.Value),
                 new SqlParameter("@Comment", txtComment.Text.Trim()));
 
-            MessageBox.Show("Thanks for your review!", "Resortify", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            MessageBox.Show("Thanks for your review!", "Resortify",
+                MessageBoxButtons.OK, MessageBoxIcon.Information);
             Close();
         }
     }

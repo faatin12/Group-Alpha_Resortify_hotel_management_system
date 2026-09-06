@@ -330,7 +330,7 @@ namespace Resortify.Forms
             cboStars.Items.AddRange(new object[]
             {
                 "Any rating",
-                "5-star hotels",
+                "5+ star hotels",
                 "4+ stars",
                 "3+ stars"
             });

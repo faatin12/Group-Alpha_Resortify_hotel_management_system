@@ -275,6 +275,35 @@ namespace Resortify.Forms
                 return;
             }
 
+            string status = bookingGrid.CurrentRow.Cells["Status"].Value.ToString();
+
+            if (status != "Completed")
+            {
+                MessageBox.Show(
+                    "You can leave a review after your booking is completed.",
+                    "Resortify",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
+            DataTable existing = DbHelper.GetDataTable(
+                @"SELECT TOP 1 ReviewId
+                  FROM Reviews
+                  WHERE CustomerId = @Cust AND HotelId = @Hotel",
+                new SqlParameter("@Cust", Session.UserId),
+                new SqlParameter("@Hotel", selectedHotelId));
+
+            if (existing.Rows.Count > 0)
+            {
+                MessageBox.Show(
+                    "You have already reviewed this hotel.",
+                    "Resortify",
+                    MessageBoxButtons.OK,
+                    MessageBoxIcon.Information);
+                return;
+            }
+
             string hotelName = bookingGrid.CurrentRow.Cells["HotelName"].Value.ToString();
             ReviewDialog dialog = new ReviewDialog(selectedHotelId, hotelName);
             dialog.ShowDialog(this);
