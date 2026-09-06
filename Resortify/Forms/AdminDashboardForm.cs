@@ -34,13 +34,21 @@ namespace Resortify.Forms
             var lblNav = new Label { Text = "Manage My Hotel", Location = new Point(24, 226), AutoSize = true, Font = new Font("Segoe UI", 11F, FontStyle.Bold) };
             Controls.Add(lblNav);
 
-            var navPanel = new FlowLayoutPanel { Location = new Point(24, 260), Size = new Size(832, 250), FlowDirection = FlowDirection.LeftToRight };
+            // Set size large enough to hold all rows nicely, triggering the form's AutoScroll
+            var navPanel = new FlowLayoutPanel
+            {
+                Location = new Point(24, 260),
+                Size = new Size(832, 360),
+                FlowDirection = FlowDirection.LeftToRight
+            };
+
             AddNav(navPanel, "Hotel Profile", () => new HotelProfileForm(isFirstTimeSetup: false));
             AddNav(navPanel, "Room / Package\nManagement", () => new RoomManagementForm());
             AddNav(navPanel, "Availability\nDashboard", () => new AvailabilityDashboardForm());
             AddNav(navPanel, "Earnings &&\nBooking Report", () => new EarningsReportForm());
             AddNav(navPanel, "Create Discount\nOffer", () => new CreateOfferForm());
             AddNav(navPanel, "Reviews on My\nHotel", () => new AdminReviewsForm());
+            AddNav(navPanel, "Staff\nManagement", () => new StaffManagementForm());
             AddNav(navPanel, "Update Profile", () => new UpdateProfileForm());
             Controls.Add(navPanel);
         }
