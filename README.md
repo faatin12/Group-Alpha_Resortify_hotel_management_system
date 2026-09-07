@@ -65,9 +65,7 @@ Resortify/
 
 ## Features & Screenshots
 
-Screenshots are stored in [`screenshots/`](screenshots/) (also bundled as
-[`screenshots.zip`](screenshots.zip) for anyone who wants the whole set as
-one download).
+Screenshots are stored in [`screenshots/`](screenshots/)
 
 ### Authentication
 
