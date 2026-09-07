@@ -1,5 +1,7 @@
 using System;
+using System.Data;
 using System.Drawing;
+using System.Text;
 using System.Windows.Forms;
 using Resortify.Data;
 using Resortify.Helpers;
@@ -78,6 +80,31 @@ namespace Resortify.Forms
             AddCard("Total Bookings", bookings.ToString());
             AddCard("Platform Revenue", $"${revenue:N2}");
             AddCard("Commission Earned (10%)", $"${commission:N2}");
+            AddCard("Pending Approvals", PendingApprovalsSummary());
+        }
+
+        /// <summary>
+        /// Counts Pending accounts grouped by UserType, so the Super Admin can
+        /// see at a glance how many Admin vs Customer signups are waiting on
+        /// them without opening ManageHotelOwnersForm/ViewAllUsersForm first.
+        /// </summary>
+        private string PendingApprovalsSummary()
+        {
+            var table = DbHelper.GetDataTable(
+                @"SELECT UserType, COUNT(*) AS PendingCount
+                  FROM Users
+                  WHERE Status = 'Pending'
+                  GROUP BY UserType");
+
+            if (table.Rows.Count == 0) return "0";
+
+            var sb = new StringBuilder();
+            foreach (DataRow row in table.Rows)
+            {
+                if (sb.Length > 0) sb.Append(", ");
+                sb.Append($"{row["UserType"]}: {row["PendingCount"]}");
+            }
+            return sb.ToString();
         }
 
         private void AddCard(string title, string value)
