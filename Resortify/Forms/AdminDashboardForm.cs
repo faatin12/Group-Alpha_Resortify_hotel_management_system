@@ -20,7 +20,7 @@ namespace Resortify.Forms
         private void InitializeComponent()
         {
             Text = "Resortify - Hotel Owner Dashboard";
-            ClientSize = new Size(880, 560);
+            ClientSize = new Size(880, 660);
             AutoScroll = true;
             StartPosition = FormStartPosition.CenterScreen;
             BackColor = Color.White;
@@ -34,7 +34,13 @@ namespace Resortify.Forms
             var lblNav = new Label { Text = "Manage My Hotel", Location = new Point(24, 226), AutoSize = true, Font = new Font("Segoe UI", 11F, FontStyle.Bold) };
             Controls.Add(lblNav);
 
-            var navPanel = new FlowLayoutPanel { Location = new Point(24, 260), Size = new Size(832, 250), FlowDirection = FlowDirection.LeftToRight };
+            // Set size large enough to hold all rows nicely, triggering the form's AutoScroll
+            var navPanel = new FlowLayoutPanel
+            {
+                Location = new Point(24, 260),
+                Size = new Size(832, 380),
+                FlowDirection = FlowDirection.LeftToRight
+            };
             AddNav(navPanel, "Hotel Profile", () => new HotelProfileForm(isFirstTimeSetup: false));
             AddNav(navPanel, "Room / Package\nManagement", () => new RoomManagementForm());
             AddNav(navPanel, "Availability\nDashboard", () => new AvailabilityDashboardForm());
